@@ -51,8 +51,8 @@ export interface LaunchResult {
  *
  * Priority:
  * 1. BROWSER=none → skip
- * 2. puppeteer-core available + Chrome found → launch with puppeteer (programmatic control)
- * 3. Fallback → open in default system browser
+ * 2. PUPPETEER=true → launch with puppeteer-core (for CI/headless)
+ * 3. Default → open in system browser
  *
  * Set HEADLESS=true for headless mode (puppeteer only).
  * Set CHROME_PATH to use a specific browser executable.
@@ -67,37 +67,39 @@ export async function launchBrowser(
     return { method: 'none' };
   }
 
-  const chromePath = findChromePath();
+  const usePuppeteer = process.env.PUPPETEER === 'true' || options.headless;
 
-  if (chromePath) {
-    try {
-      const pptr = await import('puppeteer-core');
-      const browser = await pptr.default.launch({
-        executablePath: chromePath,
-        headless: options.headless ?? false,
-        args: [
-          '--no-first-run',
-          '--no-default-browser-check',
-          '--window-size=1280,800',
-        ],
-        defaultViewport: null,
-      });
+  if (usePuppeteer) {
+    const chromePath = findChromePath();
+    if (chromePath) {
+      try {
+        const pptr = await import('puppeteer-core');
+        const browser = await pptr.default.launch({
+          executablePath: chromePath,
+          headless: options.headless ?? false,
+          args: [
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--window-size=1280,800',
+          ],
+          defaultViewport: null,
+        });
 
-      const pages = await browser.pages();
-      const page = pages[0] || await browser.newPage();
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
+        const pages = await browser.pages();
+        const page = pages[0] || await browser.newPage();
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
 
-      console.error(`[threejs-devtools] Browser launched via puppeteer (${options.headless ? 'headless' : 'headed'})`);
-      return {
-        method: 'puppeteer',
-        close: async () => { try { await browser.close(); } catch { /* ignore */ } },
-      };
-    } catch (err) {
-      console.error(`[threejs-devtools] Puppeteer failed: ${(err as Error).message}, opening system browser`);
+        console.error(`[threejs-devtools] Browser launched via puppeteer (${options.headless ? 'headless' : 'headed'})`);
+        return {
+          method: 'puppeteer',
+          close: async () => { try { await browser.close(); } catch { /* ignore */ } },
+        };
+      } catch (err) {
+        console.error(`[threejs-devtools] Puppeteer failed: ${(err as Error).message}, opening system browser`);
+      }
     }
   }
 
-  // Fallback: system browser
   openInDefaultBrowser(url);
   console.error(`[threejs-devtools] Opened ${url} in system browser`);
   return { method: 'system-browser' };
