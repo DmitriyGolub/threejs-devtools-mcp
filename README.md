@@ -1,5 +1,9 @@
 # threejs-devtools-mcp
 
+[![npm version](https://img.shields.io/npm/v/threejs-devtools-mcp)](https://www.npmjs.com/package/threejs-devtools-mcp)
+[![license](https://img.shields.io/npm/l/threejs-devtools-mcp)](LICENSE)
+[![build](https://github.com/DmitriyGolub/threejs-devtools-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/DmitriyGolub/threejs-devtools-mcp/actions)
+
 MCP server for inspecting and modifying Three.js scenes in real time — objects, materials, shaders, textures, animations, performance.
 
 **Zero changes to your project.** Works with vanilla Three.js, React Three Fiber, and any framework.
