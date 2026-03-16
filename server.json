@@ -1,17 +1,20 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.dmitriygolub/threejs-devtools",
+  "name": "io.github.DmitriyGolub/threejs-devtools",
   "description": "Inspect and edit Three.js scenes, materials, shaders, lights in real time from any AI agent",
   "repository": {
     "url": "https://github.com/DmitriyGolub/threejs-devtools-mcp",
     "source": "github"
   },
-  "version": "0.2.0",
+  "title": "Three.js DevTools MCP",
+  "websiteUrl": "https://github.com/DmitriyGolub/threejs-devtools-mcp",
+  "version": "0.2.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "threejs-devtools-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
+      "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
       },

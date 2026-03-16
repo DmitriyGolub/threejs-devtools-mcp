@@ -1,7 +1,7 @@
 {
   "name": "threejs-devtools-mcp",
-  "version": "0.2.0",
-  "mcpName": "io.github.dmitriygolub/threejs-devtools",
+  "version": "0.2.1",
+  "mcpName": "io.github.DmitriyGolub/threejs-devtools",
   "description": "Three.js MCP server — inspect and edit scenes, materials, shaders, lights in real time from any AI agent",
   "author": "DmitriyGolub",
   "repository": {
