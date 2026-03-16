@@ -37,6 +37,18 @@ import {
   addHelperHandler, removeHelperHandler,
   setTextureHandler,
 } from './handlers/inspect.js';
+import { shadowDetailsHandler, setShadowHandler } from './handlers/shadow.js';
+import { sceneBackgroundHandler } from './handlers/environment.js';
+import {
+  findObjectsHandler,
+  memoryStatsHandler,
+  disposeCheckHandler,
+  toggleWireframeHandler,
+  boundingBoxesHandler,
+  envMapDetailsHandler,
+  sceneDiffHandler,
+  postprocessingListHandler,
+} from './handlers/diagnostics.js';
 
 const handlers: Record<string, Handler> = {
   scene_tree: sceneTreeHandler,
@@ -76,11 +88,22 @@ const handlers: Record<string, Handler> = {
   add_helper: addHelperHandler,
   remove_helper: removeHelperHandler,
   set_texture: setTextureHandler,
+  shadow_details: shadowDetailsHandler,
+  set_shadow: setShadowHandler,
+  scene_background: sceneBackgroundHandler,
+  find_objects: findObjectsHandler,
+  memory_stats: memoryStatsHandler,
+  dispose_check: disposeCheckHandler,
+  toggle_wireframe: toggleWireframeHandler,
+  bounding_boxes: boundingBoxesHandler,
+  env_map_details: envMapDetailsHandler,
+  scene_diff: sceneDiffHandler,
+  postprocessing_list: postprocessingListHandler,
 };
 
 function startBridge(): void {
   if ((window as any).__THREEJS_DEVTOOLS_BRIDGE__) {
-    console.warn('[threejs-devtools] Bridge already injected');
+    console.warn('[threejs-devtools-mcp] Bridge already injected');
     return;
   }
   (window as any).__THREEJS_DEVTOOLS_BRIDGE__ = true;
@@ -89,21 +112,30 @@ function startBridge(): void {
   let ws: WebSocket | null = null;
   let ctx: ThreeContext | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let replaced = false; // Set when server tells us another tab took over
 
   function connect(): void {
+    if (replaced) return; // Don't reconnect if replaced by another tab
     try { ws = new WebSocket(`ws://localhost:${port}`); }
     catch { scheduleReconnect(); return; }
 
     ws.onopen = () => {
-      console.log('[threejs-devtools] Connected to MCP server');
+      console.log('[threejs-devtools-mcp] Connected to MCP server');
       ctx = discoverThreeJS();
-      if (ctx) console.log('[threejs-devtools] Three.js scene found');
-      else console.warn('[threejs-devtools] Three.js scene not found yet, will retry on each request');
+      if (ctx) console.log('[threejs-devtools-mcp] Three.js scene found');
+      else console.warn('[threejs-devtools-mcp] Three.js scene not found yet, will retry on each request');
     };
 
     ws.onmessage = (event) => {
       let request: BridgeRequest;
       try { request = JSON.parse(event.data as string); } catch { return; }
+
+      // Server tells us this tab was replaced by a new connection
+      if (request.id === '__replaced') {
+        replaced = true;
+        console.log('[threejs-devtools-mcp] Replaced by another tab — stopping reconnect');
+        return;
+      }
 
       ctx = discoverThreeJS();
       if (!ctx) {
@@ -124,8 +156,12 @@ function startBridge(): void {
       }
     };
 
-    ws.onclose = () => {
-      console.log('[threejs-devtools] Disconnected from MCP server');
+    ws.onclose = (event) => {
+      if (replaced || event.code === 4000) {
+        console.log('[threejs-devtools-mcp] Replaced by another tab — not reconnecting');
+        return;
+      }
+      console.log('[threejs-devtools-mcp] Disconnected from MCP server');
       scheduleReconnect();
     };
 

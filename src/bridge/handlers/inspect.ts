@@ -5,6 +5,7 @@ import type { Handler } from '../types.js';
 import { serializeVector3 } from '../serializers/vector.js';
 import { findObjectByName, findObjectByUuid } from '../traversal.js';
 import { resolveObject } from './mutate.js';
+import { getThreeModule } from '../discovery.js';
 
 // ── animation_details ────────────────────────────────────
 
@@ -318,19 +319,15 @@ export const raycastHandler: Handler = (ctx, params) => {
     throw new Error('Missing x and/or y parameters (normalized device coordinates, -1 to 1)');
   }
 
-  // Create raycaster — we need THREE classes from the scene context
-  // Since we're in browser, we can use constructors from existing objects
   const camera = ctx.camera;
   const scene = ctx.scene;
 
-  // Get Three.js constructors from existing objects
-  const Vector2Ctor = camera.position.constructor.prototype.constructor;
-  const RaycasterCtor = (window as any).THREE?.Raycaster;
+  // Raycaster is always in the bundle when R3F is used (it's in the store)
+  const THREE = getThreeModule();
+  const RaycasterCtor = THREE?.Raycaster;
 
   if (!RaycasterCtor) {
-    // Fallback: construct manually by finding Raycaster in Three.js module
-    // The scene must have THREE accessible
-    throw new Error('THREE.Raycaster not found. Ensure THREE is accessible on window.THREE');
+    throw new Error('THREE.Raycaster not available. R3F apps should have it auto-detected.');
   }
 
   const raycaster = new RaycasterCtor();
@@ -369,39 +366,94 @@ export const addHelperHandler: Handler = (ctx, params) => {
   else if (targetName) target = findObjectByName(ctx.scene, targetName);
   if (!target) throw new Error(`Target object not found: ${targetName || targetUuid}`);
 
-  // We need THREE constructors — try to get them
-  const THREE = (window as any).THREE;
+  const THREE = getThreeModule();
 
   let helper: any;
   const helperId = `helper_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
-  if (helperType === 'box') {
-    if (THREE?.BoxHelper) {
-      helper = new THREE.BoxHelper(target, color);
-    } else {
-      // Manual bounding box visualization using line segments
-      throw new Error('THREE.BoxHelper not available on window.THREE');
-    }
-  } else if (helperType === 'axes') {
-    if (THREE?.AxesHelper) {
-      helper = new THREE.AxesHelper(size);
-      target.add(helper);
-    } else {
-      throw new Error('THREE.AxesHelper not available on window.THREE');
-    }
-  } else if (helperType === 'skeleton') {
-    if (THREE?.SkeletonHelper) {
-      helper = new THREE.SkeletonHelper(target);
-      ctx.scene.add(helper);
-    } else {
-      throw new Error('THREE.SkeletonHelper not available on window.THREE');
-    }
-  } else {
-    throw new Error(`Unknown helper type: "${helperType}". Supported: box, axes, skeleton`);
-  }
+  // Direction/origin for ArrowHelper
+  const dir = params.direction as number[] | undefined;
+  const origin = params.origin as number[] | undefined;
+  const length = (params.length as number) || 1;
+  const gridDivisions = (params.divisions as number) || 10;
+
+  // Vector3 constructor — get from existing object if THREE module not available
+  const Vec3 = THREE?.Vector3 || target.position.constructor;
+  const makeVec3 = (x: number, y: number, z: number) => new Vec3(x, y, z);
+
+  const require3 = (name: string) => {
+    if (!THREE?.[name]) throw new Error(
+      `THREE.${name} not available. Helpers need the full THREE module.\n` +
+      `Fix: add this to your app entry point:\n` +
+      `  import * as THREE from "three"; window.THREE = THREE;\n` +
+      `Or use run_js to create helpers manually.`
+    );
+    return THREE[name];
+  };
 
   if (helperType === 'box') {
+    const Ctor = require3('BoxHelper');
+    helper = new Ctor(target, color);
     ctx.scene.add(helper);
+  } else if (helperType === 'axes') {
+    const Ctor = require3('AxesHelper');
+    helper = new Ctor(size);
+    target.add(helper);
+  } else if (helperType === 'skeleton') {
+    const Ctor = require3('SkeletonHelper');
+    helper = new Ctor(target);
+    ctx.scene.add(helper);
+  } else if (helperType === 'arrow') {
+    const Ctor = require3('ArrowHelper');
+    const d = dir ? makeVec3(dir[0], dir[1], dir[2]).normalize() : makeVec3(0, 1, 0);
+    const o = origin ? makeVec3(origin[0], origin[1], origin[2]) : target.position.clone();
+    helper = new Ctor(d, o, length, color);
+    ctx.scene.add(helper);
+  } else if (helperType === 'grid') {
+    const Ctor = require3('GridHelper');
+    helper = new Ctor(size, gridDivisions, color, color);
+    helper.position.copy(target.position);
+    ctx.scene.add(helper);
+  } else if (helperType === 'polar_grid') {
+    const Ctor = require3('PolarGridHelper');
+    helper = new Ctor(size, 16, 8, 64);
+    helper.position.copy(target.position);
+    ctx.scene.add(helper);
+  } else if (helperType === 'camera') {
+    const Ctor = require3('CameraHelper');
+    if (!target.isCamera) throw new Error(`Target "${target.name || target.uuid}" is not a Camera`);
+    helper = new Ctor(target);
+    ctx.scene.add(helper);
+  } else if (helperType === 'directional_light') {
+    const Ctor = require3('DirectionalLightHelper');
+    if (!target.isDirectionalLight) throw new Error(`Target "${target.name || target.uuid}" is not a DirectionalLight`);
+    helper = new Ctor(target, size, color);
+    ctx.scene.add(helper);
+  } else if (helperType === 'spot_light') {
+    const Ctor = require3('SpotLightHelper');
+    if (!target.isSpotLight) throw new Error(`Target "${target.name || target.uuid}" is not a SpotLight`);
+    helper = new Ctor(target, color);
+    ctx.scene.add(helper);
+  } else if (helperType === 'point_light') {
+    const Ctor = require3('PointLightHelper');
+    if (!target.isPointLight) throw new Error(`Target "${target.name || target.uuid}" is not a PointLight`);
+    helper = new Ctor(target, size, color);
+    ctx.scene.add(helper);
+  } else if (helperType === 'hemisphere_light') {
+    const Ctor = require3('HemisphereLightHelper');
+    if (!target.isHemisphereLight) throw new Error(`Target "${target.name || target.uuid}" is not a HemisphereLight`);
+    helper = new Ctor(target, size, color);
+    ctx.scene.add(helper);
+  } else if (helperType === 'plane') {
+    const PlaneCtor = require3('Plane');
+    const HelperCtor = require3('PlaneHelper');
+    const normal = dir ? makeVec3(dir[0], dir[1], dir[2]).normalize() : makeVec3(0, 1, 0);
+    const plane = new PlaneCtor(normal, 0);
+    helper = new HelperCtor(plane, size, color);
+    helper.position.copy(target.position);
+    ctx.scene.add(helper);
+  } else {
+    throw new Error(`Unknown helper type: "${helperType}". Supported: box, axes, skeleton, arrow, grid, polar_grid, camera, directional_light, spot_light, point_light, hemisphere_light, plane`);
   }
 
   helper.name = helperId;

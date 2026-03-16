@@ -4,7 +4,7 @@
 [![license](https://img.shields.io/npm/l/threejs-devtools-mcp)](LICENSE)
 [![build](https://github.com/DmitriyGolub/threejs-devtools-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/DmitriyGolub/threejs-devtools-mcp/actions)
 
-MCP server for inspecting and modifying Three.js scenes in real time — objects, materials, shaders, textures, animations, performance.
+MCP server for inspecting and modifying Three.js scenes in real time — 47 tools for objects, materials, shaders, textures, animations, performance, memory diagnostics, and code generation.
 
 **Zero changes to your project.** Works with vanilla Three.js, React Three Fiber, and any framework.
 
@@ -110,6 +110,9 @@ That's it. The AI sees the tools automatically and uses them when relevant. Just
 "why is my model invisible? check with threejs-devtools"
 "what materials are in the scene?"
 "make the car red"
+"find all transparent meshes"
+"check for memory leaks"
+"generate a React component from my model.glb"
 ```
 
 > **Tip:** Some AI clients (like Claude Code) pick up MCP tools automatically. Others (like Cursor) may need a nudge — mention `threejs-devtools-mcp` in your first prompt, after that the AI will keep using it.
@@ -141,6 +144,32 @@ The AI checks object_details("player"):
 
 > "fix it"
   → set_material_property(name="player", property="opacity", value=1)
+```
+
+**Search and diagnose:**
+```
+> "find all invisible meshes"
+  → find_objects(type="Mesh", visible=false)
+  → 3 hidden meshes found: oldPlayer, debugCube, unusedTerrain
+
+> "check for memory leaks"
+  → dispose_check
+  → 12 orphaned geometries, 4 orphaned textures (not in scene but tracked by renderer)
+
+> "how much VRAM am I using?"
+  → memory_stats
+  → Textures: 48.2 MB (top: skybox 16MB, terrain 8MB), Geometry: 3.1 MB
+
+> "what changed in the scene?"
+  → scene_diff (first call: saves snapshot)
+  → scene_diff (second call: shows 5 objects moved, 2 materials changed color)
+```
+
+**Generate React components from 3D models:**
+```
+> "convert my character.glb to a React component"
+  → gltf_to_r3f(filePath="public/character.glb")
+  → Generated CharacterModel.tsx with useGLTF, useAnimations (Walk, Run, Idle)
 ```
 
 **Modify the scene live:**
@@ -180,7 +209,7 @@ AI Agent ←stdio/http→ MCP Server ←proxy :9222→ Dev Server (:3000)
                       Three.js scene
 ```
 
-The proxy injects a bridge script into `<head>` before Three.js loads. The bridge captures Scene and Renderer via the official `__THREE_DEVTOOLS__` API and exposes 39 tools to the AI agent.
+The proxy injects a bridge script into `<head>` before Three.js loads. The bridge captures Scene and Renderer via the official `__THREE_DEVTOOLS__` API and exposes 47 tools to the AI agent.
 
 ## Transports
 
@@ -235,7 +264,7 @@ Example — headless mode for CI:
 
 ## Documentation
 
-- [Tools reference](docs/tools.md) — all 39 tools with parameters
+- [Tools reference](docs/tools.md) — all 47 tools with parameters
 - [Cursor setup](docs/cursor-setup.md) — step-by-step guide for Cursor
 - [Token-efficient workflow](docs/workflow.md) — best practices for saving context
 

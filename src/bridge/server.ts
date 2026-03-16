@@ -33,7 +33,7 @@ export class BridgeServer {
 
   setDevPort(newPort: number): void {
     this._devPort = newPort;
-    console.error(`[threejs-devtools] Dev port changed to ${newPort}`);
+    console.error(`[threejs-devtools-mcp] Dev port changed to ${newPort}`);
   }
 
   constructor(private port: number = 9222, devPort: number = 3000) {
@@ -68,7 +68,7 @@ export class BridgeServer {
 
     this.httpServer.listen(this.port, () => {
       const url = `http://localhost:${this.port}`;
-      console.error(`[threejs-devtools] Proxy: ${url} → http://localhost:${this._devPort}`);
+      console.error(`[threejs-devtools-mcp] Proxy: ${url} → http://localhost:${this._devPort}`);
       this._onReady?.();
     });
   }
@@ -99,7 +99,7 @@ export class BridgeServer {
       this.client.close();
       this.client = null;
       this.rejectAll('Bridge manually disconnected');
-      console.error('[threejs-devtools] Bridge manually disconnected');
+      console.error('[threejs-devtools-mcp] Bridge manually disconnected');
     }
   }
 
@@ -116,9 +116,17 @@ export class BridgeServer {
   }
 
   private handleBridgeConnection(ws: WebSocket): void {
-    if (this.client) this.client.close();
+    // Gracefully replace old client: detach listeners, let it close naturally.
+    // Do NOT call .close() — it triggers browser reconnect → infinite loop.
+    const prev = this.client;
+    if (prev && prev !== ws && prev.readyState === WebSocket.OPEN) {
+      prev.removeAllListeners();
+      // Send a "replaced" message so the old tab knows to stop reconnecting
+      try { prev.send(JSON.stringify({ id: '__replaced', error: { code: -99, message: 'Replaced by new connection' } })); } catch { /* ignore */ }
+      prev.close(4000, 'Replaced by new tab');
+    }
     this.client = ws;
-    console.error('[threejs-devtools] Bridge connected');
+    console.error('[threejs-devtools-mcp] Bridge connected');
 
     ws.on('message', (data) => {
       try {
@@ -132,12 +140,13 @@ export class BridgeServer {
       } catch { /* ignore */ }
     });
 
-    ws.on('close', () => {
-      if (this.client === ws) { this.client = null; console.error('[threejs-devtools] Bridge disconnected'); }
-      this.rejectAll('Bridge disconnected');
+    ws.on('close', (code) => {
+      if (this.client === ws) { this.client = null; console.error('[threejs-devtools-mcp] Bridge disconnected'); }
+      // Only reject pending if this was the active client
+      if (this.client === null) this.rejectAll('Bridge disconnected');
     });
 
-    ws.on('error', (err) => console.error('[threejs-devtools] WS error:', err.message));
+    ws.on('error', (err) => console.error('[threejs-devtools-mcp] WS error:', err.message));
   }
 
   private loadBridgeScript(): string | null {

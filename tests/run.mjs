@@ -34,6 +34,11 @@ import { testAddHelper } from './test-helpers.mjs';
 import { testRaycast } from './test-raycast.mjs';
 import { testLayerDetails, testSetLayers } from './test-layers.mjs';
 import { testMorphTargets, testSetMorphTarget } from './test-morph.mjs';
+import {
+  testFindObjects, testMemoryStats, testDisposeCheck,
+  testToggleWireframe, testBoundingBoxes, testEnvMapDetails,
+  testSceneDiff, testPostprocessingList, testGltfToR3f,
+} from './test-diagnostics.mjs';
 
 const serverDir = path.resolve(import.meta.dirname, '..');
 const client = createTestClient(serverDir);
@@ -164,6 +169,34 @@ try {
   // ── Helpers ──
   console.log('\n── Add/Remove Helper ──');
   await testAddHelper(client);
+
+  // ── Diagnostics (new in v0.2.0) ──
+  console.log('\n── Find Objects ──');
+  await testFindObjects(client);
+
+  console.log('\n── Memory Stats ──');
+  await testMemoryStats(client);
+
+  console.log('\n── Dispose Check ──');
+  await testDisposeCheck(client);
+
+  console.log('\n── Toggle Wireframe ──');
+  await testToggleWireframe(client);
+
+  console.log('\n── Bounding Boxes ──');
+  await testBoundingBoxes(client);
+
+  console.log('\n── Env Map Details ──');
+  await testEnvMapDetails(client);
+
+  console.log('\n── Scene Diff ──');
+  await testSceneDiff(client);
+
+  console.log('\n── Post-processing ──');
+  await testPostprocessingList(client);
+
+  console.log('\n── GLTF to R3F ──');
+  await testGltfToR3f(client);
 
   // ── Config (last, may change port) ──
   console.log('\n── Config ──');

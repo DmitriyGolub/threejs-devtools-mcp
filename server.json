@@ -1,0 +1,57 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.dmitriygolub/threejs-devtools",
+  "description": "Inspect and edit Three.js scenes, materials, shaders, lights in real time from any AI agent",
+  "repository": {
+    "url": "https://github.com/DmitriyGolub/threejs-devtools-mcp",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "threejs-devtools-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Dev server port to proxy (auto-detected from package.json if not set)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "DEV_PORT"
+        },
+        {
+          "description": "Bridge proxy port (default: 9222)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "BRIDGE_PORT"
+        },
+        {
+          "description": "Set to 'none' to disable auto-opening browser",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "BROWSER"
+        },
+        {
+          "description": "Set to 'true' for headless browser mode (CI)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "HEADLESS"
+        },
+        {
+          "description": "Custom Chrome/Edge executable path",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "CHROME_PATH"
+        }
+      ]
+    }
+  ]
+}
