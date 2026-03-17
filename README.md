@@ -3,8 +3,9 @@
 [![npm version](https://img.shields.io/npm/v/threejs-devtools-mcp)](https://www.npmjs.com/package/threejs-devtools-mcp)
 [![license](https://img.shields.io/npm/l/threejs-devtools-mcp)](LICENSE)
 [![build](https://github.com/DmitriyGolub/threejs-devtools-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/DmitriyGolub/threejs-devtools-mcp/actions)
+[![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://mcp-marketplace.io/server/io-github-dmitriygolub-threejs-devtools)
 
-MCP server for inspecting and modifying Three.js scenes in real time — 47 tools for objects, materials, shaders, textures, animations, performance, memory diagnostics, and code generation.
+MCP server for inspecting and modifying Three.js scenes in real time — 52 tools for objects, materials, shaders, textures, animations, performance monitoring, memory diagnostics, console capture, and code generation.
 
 **Zero changes to your project.** Works with vanilla Three.js, React Three Fiber, and any framework.
 
@@ -99,77 +100,58 @@ Add to `.vscode/mcp.json`:
 
 Start your Three.js dev server as usual (`npm run dev`). The MCP server auto-detects the port from `package.json` (Next.js → 3000, Vite → 5173, etc.) and opens a browser at `localhost:9222` with the devtools bridge injected.
 
-> **⚠️ Keep the browser tab open.** The MCP server talks to your scene through a WebSocket bridge in the browser. Close the tab → connection drops → tools stop working. Reopen `localhost:9222` to reconnect.
+> **Keep the browser tab open.** The MCP server talks to your scene through a WebSocket bridge in the browser. Close the tab → connection drops → tools stop working. Reopen `localhost:9222` to reconnect.
 
 ### 3. Ask the AI about your scene
 
-That's it. The AI sees the tools automatically and uses them when relevant. Just ask:
+The AI sees the tools automatically and uses them when relevant. Just ask:
 
 ```
-"use threejs-devtools-mcp to show me the scene tree"
-"why is my model invisible? check with threejs-devtools"
-"what materials are in the scene?"
+"show me the scene tree"
+"why is my model invisible?"
 "make the car red"
-"find all transparent meshes"
 "check for memory leaks"
+"what's my FPS?"
+"show me the diffuse texture"
 "generate a React component from my model.glb"
 ```
 
-> **Tip:** Some AI clients (like Claude Code) pick up MCP tools automatically. Others (like Cursor) may need a nudge — mention `threejs-devtools-mcp` in your first prompt, after that the AI will keep using it.
+> **Tip:** Some AI clients (like Claude Code) pick up MCP tools automatically. Others (like Cursor) may need a nudge — mention `threejs-devtools-mcp` in your first prompt.
 
 ## Usage examples
 
-**Inspect the scene:**
+**Inspect and debug:**
 ```
 > "what's in the scene?"
+  → scene_tree → player, ground, lights, trees (42 instances)
 
-The AI calls scene_tree and gets:
-  Scene
-    player [Mesh]
-    ground [Mesh]
-    lights [Group]
-      sunLight [DirectionalLight] intensity=2
-      ambientLight [AmbientLight] intensity=0.5
-    trees [Group]
-      tree_0 [InstancedMesh] instances=42
-```
-
-**Debug a problem:**
-```
 > "why is my player invisible?"
-
-The AI checks object_details("player"):
-  - visible: true, position: [0, 0, 0] ✓
-  - material: MeshStandardMaterial, opacity: 0 ← found it!
-
-> "fix it"
+  → object_details("player") → opacity: 0 ← found it!
   → set_material_property(name="player", property="opacity", value=1)
-```
 
-**Search and diagnose:**
-```
 > "find all invisible meshes"
-  → find_objects(type="Mesh", visible=false)
-  → 3 hidden meshes found: oldPlayer, debugCube, unusedTerrain
+  → find_objects(type="Mesh", visible=false) → 3 hidden meshes
 
 > "check for memory leaks"
-  → dispose_check
-  → 12 orphaned geometries, 4 orphaned textures (not in scene but tracked by renderer)
+  → dispose_check → 12 orphaned geometries, 4 orphaned textures
 
-> "how much VRAM am I using?"
-  → memory_stats
-  → Textures: 48.2 MB (top: skybox 16MB, terrain 8MB), Geometry: 3.1 MB
-
-> "what changed in the scene?"
-  → scene_diff (first call: saves snapshot)
-  → scene_diff (second call: shows 5 objects moved, 2 materials changed color)
+> "are there any errors in the browser?"
+  → console_capture → 2 errors: "Texture format not supported", "Shader compile failed"
 ```
 
-**Generate React components from 3D models:**
+**Performance and visuals:**
 ```
-> "convert my character.glb to a React component"
-  → gltf_to_r3f(filePath="public/character.glb")
-  → Generated CharacterModel.tsx with useGLTF, useAnimations (Walk, Run, Idle)
+> "what's my FPS?"
+  → perf_monitor(duration=3) → avg: 58 FPS, p99: 22ms, 3 spikes
+
+> "show me the diffuse texture"
+  → texture_preview(name="diffuse") → [image] 1024x1024, saved to screenshots/
+
+> "take a screenshot"
+  → take_screenshot → [image] 1920x1080, saved to screenshots/screenshot-1234.png
+
+> "click on an object to inspect it"
+  → click_inspect → user clicks → road_0 [Mesh], MeshStandardMaterial, distance: 12.3
 ```
 
 **Modify the scene live:**
@@ -177,20 +159,20 @@ The AI checks object_details("player"):
 > "make the ground blue"
   → set_material_property(name="ground", property="color", value="#4488ff")
 
-> "move the sun higher"
-  → set_object_transform(name="sunLight", position=[0, 20, 0])
+> "switch animation to Idle"
+  → set_animation(clipName="Idle", play=true)
 
-> "show me render stats"
-  → renderer_info → draw calls: 230, triangles: 3.4M, textures: 27
+> "convert my character.glb to a React component"
+  → gltf_to_r3f(filePath="public/character.glb")
+  → Generated CharacterModel.tsx with useGLTF, useAnimations
 ```
 
 ## Tip: name your objects
 
-The scene tree uses object names to identify things. Unnamed objects show as `(unnamed)`, making debugging harder. Always set `.name`:
+The scene tree uses object names to identify things. Unnamed objects show as `(unnamed)`, making debugging harder:
 
 ```js
 // Three.js
-const mesh = new THREE.Mesh(geometry, material);
 mesh.name = "player";
 ```
 
@@ -206,7 +188,7 @@ Works out of the box with vanilla Three.js. For **React Three Fiber** with `useA
 ```tsx
 const { actions, mixer } = useAnimations(animations, group);
 
-// Add this — enables devtools animation control:
+// Expose for devtools:
 useEffect(() => {
   if (group.current) group.current.animations = animations;
   window.__THREE_ANIMATION_MIXERS__ = [mixer];
@@ -214,24 +196,22 @@ useEffect(() => {
 }, [animations, mixer]);
 ```
 
-**Why is this needed?** R3F's `useAnimations` stores the AnimationMixer in a React closure. JavaScript has no way to access closure variables from outside — the devtools can detect that a mixer is active (via useFrame subscriber analysis), but cannot control it without a global reference.
-
-**Without these lines**, `animation_details` will still report:
-- Active mixer detected (via R3F subscriber analysis)
-- SkinnedMesh objects with bone counts
-- Loaded `.glb`/`.gltf` files
-
-**With these lines**, you get full control:
-- Play/pause/stop any animation clip
-- Crossfade between animations
-- Adjust timeScale, weights
-- Auto-creates actions from available clips (no need to pre-register)
+**Why?** R3F's `useAnimations` stores the mixer in a React closure — JavaScript cannot access closure variables from outside. Without these lines, devtools can detect an active mixer but cannot control it.
 
 For vanilla Three.js:
 
 ```js
 window.__THREE_ANIMATION_MIXERS__ = [mixer];
-model.animations = gltf.animations; // if using GLTFLoader
+model.animations = gltf.animations;
+```
+
+## Scene export
+
+The `scene_export` tool requires `GLTFExporter` to be available. Add to your app:
+
+```js
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+window.GLTFExporter = GLTFExporter;
 ```
 
 ## How it works
@@ -244,7 +224,7 @@ AI Agent ←stdio/http→ MCP Server ←proxy :9222→ Dev Server (:3000)
                       Three.js scene
 ```
 
-The proxy injects a bridge script into `<head>` before Three.js loads. The bridge captures Scene and Renderer via the official `__THREE_DEVTOOLS__` API and exposes 47 tools to the AI agent.
+The proxy injects a bridge script into `<head>` before Three.js loads. The bridge captures Scene and Renderer via the official `__THREE_DEVTOOLS__` API and exposes 52 tools to the AI agent. Screenshots and texture previews are saved to a `screenshots/` folder in your project.
 
 ## Transports
 
@@ -286,20 +266,9 @@ Example — custom dev port, no browser auto-open:
 }
 ```
 
-Example — headless mode for CI:
-
-```json
-{
-  "env": {
-    "HEADLESS": "true",
-    "DEV_PORT": "3000"
-  }
-}
-```
-
 ## Documentation
 
-- [Tools reference](docs/tools.md) — all 47 tools with parameters
+- [Tools reference](docs/tools.md) — all 52 tools with parameters
 - [Cursor setup](docs/cursor-setup.md) — step-by-step guide for Cursor
 - [Token-efficient workflow](docs/workflow.md) — best practices for saving context
 
