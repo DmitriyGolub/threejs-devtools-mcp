@@ -199,6 +199,38 @@ mesh.name = "player";
 <mesh name="player" geometry={geometry} material={material} />
 ```
 
+## Animations
+
+The devtools auto-detect animations in most setups. For **React Three Fiber** apps using `useAnimations`, the AnimationMixer lives inside a React closure and can't be inspected directly. The `animation_details` tool will still report:
+
+- Active mixers detected via R3F useFrame subscribers
+- SkinnedMesh objects with bone counts
+- Loaded `.glb`/`.gltf` files (via performance API)
+
+To enable **full animation control** (play/pause/stop, change weights and timeScale), expose the clips on the group:
+
+```tsx
+import { useGLTF, useAnimations } from '@react-three/drei';
+
+function Character() {
+  const group = useRef<THREE.Group>(null);
+  const { animations, scene } = useGLTF('/character.glb');
+  const { actions, mixer } = useAnimations(animations, group);
+
+  // Expose for devtools — one line:
+  useEffect(() => { if (group.current) group.current.animations = animations; }, [animations]);
+
+  return <group ref={group}><primitive object={scene} /></group>;
+}
+```
+
+For vanilla Three.js, register your mixer globally:
+
+```js
+const mixer = new THREE.AnimationMixer(model);
+window.__THREE_ANIMATION_MIXERS__ = [mixer];
+```
+
 ## How it works
 
 ```

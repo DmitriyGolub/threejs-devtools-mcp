@@ -83,31 +83,49 @@ export const animationDetailsHandler: Handler = (ctx) => {
     }
   });
 
-  // Strategy 3: R3F store — walk canvas.__r3f.store internal state
-  if (mixers.length === 0) {
+  // Strategy 3: R3F store — walk internal subscribers and check refs
+  const r3fRoot = (ctx.scene as any).__r3f?.root;
+  const r3fState = typeof r3fRoot?.getState === 'function' ? r3fRoot.getState() : null;
+
+  // Also try canvas.__r3f
+  if (!r3fState) {
     const canvases = document.querySelectorAll('canvas');
     for (const canvas of canvases) {
       const r3f = (canvas as any).__r3f;
       if (!r3f) continue;
       const root = r3f.store?.getState?.() || r3f.root?.getState?.();
-      if (!root) continue;
+      if (root) { Object.assign(r3fState || {}, root); break; }
+    }
+  }
 
-      // Walk frameloop subscribers — AnimationMixer.update is often called via useFrame
-      // This is a heuristic: look for mixer instances in the store's internal subscribers
-      const internal = root.internal;
-      if (internal?.subscribers) {
-        for (const sub of internal.subscribers) {
-          // useFrame stores the callback ref — check if it closes over a mixer
-          // Unfortunately closures aren't inspectable, so this is limited
-          const ref = sub?.ref?.current;
-          if (isMixer(ref)) addMixer(ref);
+  const storeState = r3fState || ((): any => {
+    const canvases = document.querySelectorAll('canvas');
+    for (const c of canvases) {
+      const r = (c as any).__r3f;
+      const s = r?.store?.getState?.() || r?.root?.getState?.();
+      if (s) return s;
+    }
+    return null;
+  })();
+
+  let activeMixerCount = 0;
+  if (storeState?.internal?.subscribers) {
+    for (const sub of storeState.internal.subscribers) {
+      // Check if subscriber ref holds a mixer directly
+      const ref = sub?.ref?.current;
+      if (isMixer(ref)) { addMixer(ref); continue; }
+
+      // Detect useAnimations pattern: subscriber source contains 'mixer.update'
+      if (typeof ref === 'function') {
+        const src = ref.toString();
+        if (src.includes('mixer') && src.includes('update')) {
+          activeMixerCount++;
         }
       }
     }
   }
 
   // Strategy 4: Check for objects with .animations array (GLTF data)
-  // Report available clips even without active mixers
   const clips: any[] = [];
   ctx.scene.traverse((obj: any) => {
     if (obj.animations && obj.animations.length > 0) {
@@ -123,13 +141,43 @@ export const animationDetailsHandler: Handler = (ctx) => {
     }
   });
 
+  // Strategy 5: Detect loaded animation GLBs via performance resource entries
+  let loadedGlbs: string[] = [];
+  try {
+    loadedGlbs = [...new Set(
+      performance.getEntriesByType('resource')
+        .map((e: any) => { try { return new URL(e.name).pathname; } catch { return ''; } })
+        .filter((p: string) => /\.(glb|gltf)$/i.test(p))
+    )];
+  } catch { /* performance API may not be available */ }
+
+  // Strategy 6: Check SkinnedMesh presence — implies character with potential animations
+  const skinnedMeshes: any[] = [];
+  ctx.scene.traverse((obj: any) => {
+    if (obj.isSkinnedMesh) {
+      skinnedMeshes.push({
+        name: obj.name || obj.uuid,
+        boneCount: obj.skeleton?.bones?.length || 0,
+        parentName: obj.parent?.name || '',
+      });
+    }
+  });
+
+  // Build response
+  const noMixersFound = mixers.length === 0;
+  const hasR3fMixerActivity = activeMixerCount > 0;
+  const hasSkeletons = skinnedMeshes.length > 0;
+
   return {
     mixers,
     ...(clips.length > 0 ? { availableClips: clips } : {}),
-    ...(mixers.length === 0 && clips.length > 0 ? {
-      hint: 'Animation clips found but no active AnimationMixer detected. ' +
-        'In R3F, mixers created by useAnimations() are stored in React refs and may not be discoverable. ' +
-        'Use run_js to inspect: return scene.getObjectByName("yourModel").animations',
+    ...(activeMixerCount > 0 ? { activeMixersDetected: activeMixerCount } : {}),
+    ...(skinnedMeshes.length > 0 ? { skinnedMeshes } : {}),
+    ...(loadedGlbs.length > 0 ? { loadedGlbFiles: loadedGlbs } : {}),
+    ...(noMixersFound && (hasR3fMixerActivity || hasSkeletons) ? {
+      hint: `${hasR3fMixerActivity ? `${activeMixerCount} active AnimationMixer(s) detected in R3F useFrame subscribers, but the mixer is in a JS closure and cannot be inspected directly.` : 'SkinnedMesh found but no AnimationMixer detected.'}`
+        + ' To enable full animation control, expose clips on the group: group.current.animations = gltf.animations'
+        + ' — see https://github.com/AtelierOtome/threejs-devtools-mcp#animations',
     } : {}),
   };
 };
