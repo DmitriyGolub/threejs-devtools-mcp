@@ -1,7 +1,19 @@
 /**
  * Test: mutation tools (set_material_property, set_uniform, set_object_transform, set_light, highlight, run_js, performance).
  */
-import { ok, toolOk } from './test-runner.mjs';
+import { ok, skip, toolOk } from './test-runner.mjs';
+
+/** Recursively find a node matching a predicate in a scene tree */
+function findNode(node, predicate) {
+  if (predicate(node)) return node;
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findNode(child, predicate);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 // ── set_material_property ────────────────────────────────
 
@@ -136,25 +148,36 @@ export async function testSetUniform(client) {
 // ── set_object_transform ─────────────────────────────────
 
 export async function testSetObjectTransform(client) {
-  // Get scene tree to find an object
-  const treeResp = await client.callTool('scene_tree', { depth: 2 });
-  const tree = toolOk('scene_tree (for transform)', treeResp);
-  if (!tree) return;
+  // Use find_objects to reliably find a named mesh
+  const findResp = await client.callTool('find_objects', { type: 'Mesh', limit: 5 });
+  const findData = toolOk('find_objects (for transform)', findResp);
+  const objects = findData?.objects || findData;
+  const named = Array.isArray(objects) ? objects.find(o => o.name && o.name.length > 0) : null;
 
-  // Find a named object
-  const named = tree.children?.find(c => c.name && c.name.length > 0);
   if (!named) {
-    ok('set_object_transform: found named object', false, 'no named objects in scene');
-    return;
+    // Fallback: search scene tree recursively
+    const treeResp = await client.callTool('scene_tree', { depth: 4, compact: false });
+    const tree = toolOk('scene_tree (for transform)', treeResp);
+    const found = tree ? findNode(tree, n => n.name && n.name.length > 0 && n.type !== 'Scene') : null;
+    if (!found) {
+      skip('set_object_transform', 'no named objects found in scene');
+      return;
+    }
+    return runTransformTest(client, found);
   }
-  ok('set_object_transform: target', true, named.name);
+
+  return runTransformTest(client, named);
+}
+
+async function runTransformTest(client, target) {
+  ok('set_object_transform: target', true, target.name);
 
   // Save original position
-  const originalPos = named.position;
+  const originalPos = target.position;
 
   // Move it
   const resp = await client.callTool('set_object_transform', {
-    name: named.name,
+    name: target.name,
     position: [99, 99, 99],
   });
   const result = toolOk('set_object_transform (position)', resp);
@@ -166,21 +189,21 @@ export async function testSetObjectTransform(client) {
 
   // Restore original position
   await client.callTool('set_object_transform', {
-    name: named.name,
-    position: originalPos,
+    name: target.name,
+    position: originalPos || [0, 0, 0],
   });
   ok('position restored', true);
 
   // Toggle visibility
   const hideResp = await client.callTool('set_object_transform', {
-    name: named.name,
+    name: target.name,
     visible: false,
   });
   const hideResult = toolOk('set_object_transform (visible=false)', hideResp);
   if (hideResult) ok('hidden', hideResult.visible === false);
 
   // Restore visibility
-  await client.callTool('set_object_transform', { name: named.name, visible: true });
+  await client.callTool('set_object_transform', { name: target.name, visible: true });
   ok('visibility restored', true);
 }
 
@@ -237,13 +260,14 @@ export async function testSetLight(client) {
 // ── highlight_object ─────────────────────────────────────
 
 export async function testHighlightObject(client) {
-  const treeResp = await client.callTool('scene_tree', { depth: 2 });
-  const tree = toolOk('scene_tree (for highlight)', treeResp);
-  if (!tree) return;
+  // Use find_objects to get a named object
+  const findResp = await client.callTool('find_objects', { type: 'Mesh', limit: 5 });
+  const findData = toolOk('find_objects (for highlight)', findResp);
+  const objects = findData?.objects || findData;
+  const named = Array.isArray(objects) ? objects.find(o => o.name && o.name.length > 0) : null;
 
-  const named = tree.children?.find(c => c.name && c.name.length > 0);
   if (!named) {
-    ok('highlight: found named object', false);
+    skip('highlight', 'no named objects found');
     return;
   }
 
@@ -285,7 +309,7 @@ export async function testRunJs(client) {
     code: 'return scene.children.map(c => c.type)',
   });
   const result2 = toolOk('run_js (children types)', resp2);
-  ok('run_js returns array', Array.isArray(result2) && result2.length > 0, result2?.join(', '));
+  ok('run_js returns array', Array.isArray(result2) && result2.length > 0, Array.isArray(result2) ? result2.join(', ') : String(result2));
 
   // Access renderer
   const resp3 = await client.callTool('run_js', {
@@ -357,7 +381,7 @@ export async function testInstancedMeshDetails(client) {
   const perfResp = await client.callTool('performance_snapshot');
   const perf = toolOk('performance_snapshot (for instanced)', perfResp);
   if (!perf || !perf.instancedMeshes || perf.instancedMeshes.length === 0) {
-    ok('instanced_mesh_details: found instanced mesh', false, 'no InstancedMesh in scene');
+    skip('instanced_mesh_details', 'no InstancedMesh in scene');
     return;
   }
 
@@ -400,7 +424,7 @@ export async function testSetInstancedMesh(client) {
   const perfResp = await client.callTool('performance_snapshot');
   const perf = toolOk('performance_snapshot (for set_instanced)', perfResp);
   if (!perf || !perf.instancedMeshes || perf.instancedMeshes.length === 0) {
-    ok('set_instanced_mesh: found instanced mesh', false);
+    skip('set_instanced_mesh', 'no InstancedMesh in scene');
     return;
   }
 

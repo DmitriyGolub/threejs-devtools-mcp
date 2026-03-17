@@ -353,6 +353,7 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
 
   server.registerTool('gltf_to_r3f', {
     description: 'Convert a GLTF/GLB file to a ready-to-use React Three Fiber component (like gltfjsx)',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       filePath: z.string().describe('Absolute or relative path to the .glb or .gltf file'),
       typescript: z.boolean().optional().describe('Generate TypeScript (default: true)'),
@@ -381,6 +382,7 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
   // Screenshot returns image content, needs special handling
   server.registerTool('take_screenshot', {
     description: 'Capture a screenshot of the current Three.js scene',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       width: z.number().optional().describe('Width in pixels'),
       height: z.number().optional().describe('Height in pixels'),
@@ -405,6 +407,7 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
   // Connection & config tools
   server.registerTool('bridge_status', {
     description: 'Check bridge connection and proxy status',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async () => {
     const lines = [
       `Bridge: ${bridge.connected ? 'connected' : 'NOT connected'}`,
@@ -419,6 +422,7 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
 
   server.registerTool('set_dev_port', {
     description: 'Change the dev server port the proxy forwards to',
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       port: z.number().describe('The dev server port (e.g. 3000, 5173, 8080)'),
     },

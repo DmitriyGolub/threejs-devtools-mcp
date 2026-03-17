@@ -1,6 +1,110 @@
 import http from 'node:http';
 import { WebSocket } from 'ws';
 
+function waitingPage(devPort: number, proxyPort: number): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>threejs-devtools-mcp</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+      background:#000;color:#ededed;min-height:100vh;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .container{max-width:540px;padding:48px 32px;text-align:center}
+    .badge{
+      display:inline-block;font-size:11px;font-weight:600;letter-spacing:.5px;
+      text-transform:uppercase;color:#a78bfa;border:1px solid #a78bfa33;
+      border-radius:999px;padding:4px 14px;margin-bottom:24px;
+    }
+    h1{font-size:28px;font-weight:700;letter-spacing:-.5px;margin-bottom:12px}
+    .sub{color:#888;font-size:15px;line-height:1.6;margin-bottom:32px}
+    .card{
+      background:#111;border:1px solid #222;border-radius:12px;
+      padding:20px 24px;text-align:left;margin-bottom:16px;
+    }
+    .card-title{font-size:13px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px}
+    .step{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
+    .step:last-child{margin-bottom:0}
+    .num{
+      flex-shrink:0;width:22px;height:22px;border-radius:50%;
+      background:#a78bfa22;color:#a78bfa;font-size:12px;font-weight:700;
+      display:flex;align-items:center;justify-content:center;margin-top:1px;
+    }
+    .step-text{font-size:14px;line-height:1.5;color:#ccc}
+    code{
+      background:#1a1a2e;color:#a78bfa;padding:2px 7px;border-radius:5px;
+      font-size:13px;font-family:'SF Mono',Consolas,monospace;
+    }
+    .status{
+      display:flex;align-items:center;gap:8px;justify-content:center;
+      font-size:13px;color:#666;margin-top:24px;
+    }
+    .dot{width:8px;height:8px;border-radius:50%;background:#a78bfa;animation:pulse 2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+    .route{color:#555;font-size:12px;font-family:'SF Mono',Consolas,monospace;margin-top:16px}
+    .features{
+      display:grid;grid-template-columns:1fr 1fr;gap:8px;
+      margin-top:16px;text-align:left;
+    }
+    .feat{font-size:12px;color:#666;display:flex;align-items:center;gap:6px}
+    .feat::before{content:'';width:4px;height:4px;border-radius:50%;background:#a78bfa44;flex-shrink:0}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge">threejs-devtools-mcp</div>
+    <h1>Waiting for Dev Server</h1>
+    <p class="sub">
+      This proxy page connects your Three.js app to AI-powered devtools.
+      Start your dev server and this page will automatically load your scene.
+    </p>
+
+    <div class="card">
+      <div class="card-title">Quick Setup</div>
+      <div class="step">
+        <div class="num">1</div>
+        <div class="step-text">Start your dev server on port <code>${devPort}</code></div>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <div class="step-text">This page auto-refreshes when the server is ready</div>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <div class="step-text">Wrong port? Ask the AI to run <code>set_dev_port</code></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">What this does</div>
+      <div class="features">
+        <div class="feat">Inspect scene tree</div>
+        <div class="feat">Edit materials live</div>
+        <div class="feat">Tweak lights & fog</div>
+        <div class="feat">Debug shaders</div>
+        <div class="feat">Performance stats</div>
+        <div class="feat">Memory analysis</div>
+        <div class="feat">Take screenshots</div>
+        <div class="feat">Run custom JS</div>
+      </div>
+    </div>
+
+    <div class="status">
+      <div class="dot"></div>
+      Polling localhost:${devPort}...
+    </div>
+    <div class="route">proxy :${proxyPort} &rarr; dev :${devPort}</div>
+  </div>
+  <script>setTimeout(()=>location.reload(),3000)</script>
+</body>
+</html>`;
+}
+
 /** Proxy an HTTP request to the dev server, injecting bridge into HTML */
 export function proxyRequest(
   clientReq: http.IncomingMessage,
@@ -47,15 +151,8 @@ export function proxyRequest(
   });
 
   proxyReq.on('error', () => {
-    clientRes.writeHead(502, { 'Content-Type': 'text/html' });
-    clientRes.end(
-      `<html><body style="font-family:system-ui;padding:40px;color:#ccc;background:#1a1a2e">` +
-      `<h1>threejs-devtools</h1>` +
-      `<p>Cannot reach dev server at <b>localhost:${devPort}</b></p>` +
-      `<p>Make sure your dev server is running, or use <code>set_dev_port</code> tool.</p>` +
-      `<p style="color:#666">Proxy: localhost:${proxyPort} → localhost:${devPort}</p>` +
-      `</body></html>`
-    );
+    clientRes.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8' });
+    clientRes.end(waitingPage(devPort, proxyPort));
   });
 
   clientReq.pipe(proxyReq);

@@ -1,7 +1,7 @@
 /**
  * Test: morph target inspection and mutation.
  */
-import { ok, toolOk } from './test-runner.mjs';
+import { ok, skip, toolOk } from './test-runner.mjs';
 
 export async function testMorphTargets(client) {
   const resp = await client.callTool('morph_targets');
@@ -26,7 +26,7 @@ export async function testSetMorphTarget(client) {
   const resp = await client.callTool('morph_targets');
   const data = toolOk('morph_targets (for set)', resp);
   if (!data || data.meshes.length === 0) {
-    ok('set_morph: has targets', false, 'no morph targets');
+    skip('set_morph', 'no morph targets in scene');
     return;
   }
 
