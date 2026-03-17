@@ -39,6 +39,11 @@ import {
   testToggleWireframe, testBoundingBoxes, testEnvMapDetails,
   testSceneDiff, testPostprocessingList, testGltfToR3f,
 } from './test-diagnostics.mjs';
+import { testConsoleCapture } from './test-console.mjs';
+import { testTexturePreview } from './test-texture-preview.mjs';
+import { testPerfMonitor } from './test-perf-monitor.mjs';
+import { testClickInspect } from './test-click-inspect.mjs';
+import { testSceneExport } from './test-scene-export.mjs';
 
 const serverDir = path.resolve(import.meta.dirname, '..');
 const client = createTestClient(serverDir);
@@ -197,6 +202,22 @@ try {
 
   console.log('\n── GLTF to R3F ──');
   await testGltfToR3f(client);
+
+  // ── New tools (v0.3.0) ──
+  console.log('\n── Console Capture ──');
+  await testConsoleCapture(client);
+
+  console.log('\n── Texture Preview ──');
+  await testTexturePreview(client);
+
+  console.log('\n── Perf Monitor ──');
+  await testPerfMonitor(client);
+
+  console.log('\n── Click Inspect ──');
+  await testClickInspect(client);
+
+  console.log('\n── Scene Export ──');
+  await testSceneExport(client);
 
   // ── Config (last, may change port) ──
   console.log('\n── Config ──');

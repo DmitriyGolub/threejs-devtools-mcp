@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import type { BridgeServer } from '../bridge/server.js';
 
 /**
@@ -28,6 +29,19 @@ function getScope(toolName: string): string | null {
   return null;
 }
 
+function getAnnotations(toolName: string): ToolAnnotations {
+  if (RUNTIME_PREVIEW_TOOLS.has(toolName)) {
+    return { destructiveHint: true, readOnlyHint: false, idempotentHint: true, openWorldHint: false };
+  }
+  if (DEBUG_ONLY_TOOLS.has(toolName)) {
+    return toolName === 'run_js'
+      ? { destructiveHint: true, readOnlyHint: false, idempotentHint: false, openWorldHint: true }
+      : { destructiveHint: false, readOnlyHint: false, idempotentHint: true, openWorldHint: false };
+  }
+  // Read-only inspection tools
+  return { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+}
+
 /** Register a tool that proxies a request to the browser bridge */
 export function bridgeTool(
   server: McpServer,
@@ -47,23 +61,26 @@ export function bridgeTool(
 
   server.registerTool(name, {
     description: taggedDescription,
+    annotations: getAnnotations(name),
     ...(hasParams ? { inputSchema: schema } : {}),
   }, async (params) => {
     try {
       const result = await bridge.request(name, (params ?? {}) as Record<string, unknown>, timeoutMs);
 
+      const text = JSON.stringify(result, null, 2);
+
       // Append scope note to response for mutation/debug tools
       if (scope) {
-        const data = typeof result === 'object' && result !== null
-          ? { ...result as Record<string, unknown>, _note: scope }
-          : result;
         return {
-          content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
+          content: [
+            { type: 'text' as const, text },
+            { type: 'text' as const, text: `\n_note: ${scope}` },
+          ],
         };
       }
 
       return {
-        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        content: [{ type: 'text' as const, text }],
       };
     } catch (err) {
       return {

@@ -1,8 +1,16 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { BridgeServer } from '../bridge/server.js';
 import { bridgeTool } from './tool-helper.js';
 import { gltfToR3f } from './gltf-to-r3f.js';
+
+function screenshotsDir(): string {
+  const dir = path.join(process.cwd(), 'screenshots');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
 
 export function registerTools(server: McpServer, bridge: BridgeServer): void {
   bridgeTool(server, bridge, 'scene_tree',
@@ -349,10 +357,105 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
     'List post-processing passes from EffectComposer: render passes, shader passes, effects (bloom, SSAO, etc.)',
     {});
 
+  // ── Console Capture ──────────────────────────────────────
+
+  bridgeTool(server, bridge, 'console_capture',
+    'Capture browser console output (log/warn/error). Returns last N messages. Call to check for runtime errors and warnings.',
+    { clear: z.boolean().optional().describe('Clear the capture buffer'),
+      level: z.enum(['log', 'warn', 'error']).optional().describe('Filter by level'),
+      limit: z.number().optional().describe('Max messages to return (default: 50)') });
+
+  // ── Texture Preview ─────────────────────────────────────
+
+  server.registerTool('texture_preview', {
+    description: 'Preview a specific texture as a PNG image. Use texture_list first to find names/UUIDs.',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    inputSchema: {
+      name: z.string().optional().describe('Texture name'),
+      uuid: z.string().optional().describe('Texture UUID'),
+      maxSize: z.number().optional().describe('Max dimension in px (default: 512)'),
+    },
+  }, async (params) => {
+    try {
+      const result = await bridge.request('texture_preview', (params ?? {}) as Record<string, unknown>, 15000) as {
+        dataUrl: string; width: number; height: number; originalWidth: number; originalHeight: number;
+        textureName: string; textureUuid: string;
+      };
+      const base64 = result.dataUrl.replace(/^data:image\/png;base64,/, '');
+
+      let savedPath = '';
+      try {
+        const dir = screenshotsDir();
+        const safeName = (result.textureName || result.textureUuid.slice(0, 8)).replace(/[^a-zA-Z0-9_-]/g, '_');
+        savedPath = path.join(dir, `texture-${safeName}.png`);
+        fs.writeFileSync(savedPath, Buffer.from(base64, 'base64'));
+      } catch { /* ignore save errors */ }
+
+      return {
+        content: [
+          { type: 'image' as const, data: base64, mimeType: 'image/png' as const },
+          { type: 'text' as const, text: `Texture: ${result.textureName || result.textureUuid} (${result.originalWidth}x${result.originalHeight})${savedPath ? `\nSaved to: ${savedPath}` : ''}` },
+        ],
+      };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  });
+
+  // ── Performance Monitor ─────────────────────────────────
+
+  bridgeTool(server, bridge, 'perf_monitor',
+    'Record FPS and frame times for N seconds. Returns avg/min/max FPS, percentiles, spike and jank counts.',
+    { duration: z.number().optional().describe('Recording duration in seconds (default: 3, max: 30)'),
+      includeFrameTimes: z.boolean().optional().describe('Include raw frame times array (default: false, saves tokens)') },
+    35000);
+
+  // ── Click Inspect ───────────────────────────────────────
+
+  bridgeTool(server, bridge, 'click_inspect',
+    'Enable click-to-inspect mode. Cursor changes to crosshair — tell the user to click on an object in the 3D scene. Returns clicked object details.',
+    { timeout: z.number().optional().describe('Max wait in seconds (default: 15, max: 60)') },
+    65000);
+
+  // ── Scene Export ────────────────────────────────────────
+
+  server.registerTool('scene_export', {
+    description: 'Export scene or specific object as GLB. Requires GLTFExporter in your app (see error message for setup). Saves to screenshots/ folder.',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    inputSchema: {
+      name: z.string().optional().describe('Object name (omit for entire scene)'),
+      uuid: z.string().optional().describe('Object UUID'),
+      binary: z.boolean().optional().describe('GLB binary (default: true) or glTF JSON'),
+    },
+  }, async (params) => {
+    try {
+      const result = await bridge.request('scene_export', (params ?? {}) as Record<string, unknown>, 30000) as {
+        format: string; base64?: string; json?: any; sizeBytes?: number; target: string;
+      };
+
+      if (result.base64) {
+        const dir = screenshotsDir();
+        const safeName = (result.target || 'scene').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filePath = path.join(dir, `${safeName}.glb`);
+        fs.writeFileSync(filePath, Buffer.from(result.base64, 'base64'));
+        return {
+          content: [{ type: 'text' as const, text: `Exported ${result.format} (${(result.sizeBytes! / 1024).toFixed(1)} KB) → ${filePath}` }],
+        };
+      }
+
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(result.json, null, 2).slice(0, 5000) }],
+      };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  });
+
   // ── GLTF to R3F ──────────────────────────────────────────
 
   server.registerTool('gltf_to_r3f', {
     description: 'Convert a GLTF/GLB file to a ready-to-use React Three Fiber component (like gltfjsx)',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       filePath: z.string().describe('Absolute or relative path to the .glb or .gltf file'),
       typescript: z.boolean().optional().describe('Generate TypeScript (default: true)'),
@@ -381,6 +484,7 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
   // Screenshot returns image content, needs special handling
   server.registerTool('take_screenshot', {
     description: 'Capture a screenshot of the current Three.js scene',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       width: z.number().optional().describe('Width in pixels'),
       height: z.number().optional().describe('Height in pixels'),
@@ -391,10 +495,20 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
         dataUrl: string; width: number; height: number;
       };
       const base64 = result.dataUrl.replace(/^data:image\/png;base64,/, '');
+
+      // Save to screenshots/ folder
+      let savedPath = '';
+      try {
+        const dir = screenshotsDir();
+        const filename = `screenshot-${Date.now()}.png`;
+        savedPath = path.join(dir, filename);
+        fs.writeFileSync(savedPath, Buffer.from(base64, 'base64'));
+      } catch { /* ignore save errors */ }
+
       return {
         content: [
           { type: 'image' as const, data: base64, mimeType: 'image/png' as const },
-          { type: 'text' as const, text: `Screenshot: ${result.width}x${result.height}` },
+          { type: 'text' as const, text: `Screenshot: ${result.width}x${result.height}${savedPath ? `\nSaved to: ${savedPath}` : ''}` },
         ],
       };
     } catch (err) {
@@ -405,6 +519,7 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
   // Connection & config tools
   server.registerTool('bridge_status', {
     description: 'Check bridge connection and proxy status',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async () => {
     const lines = [
       `Bridge: ${bridge.connected ? 'connected' : 'NOT connected'}`,
@@ -419,6 +534,7 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
 
   server.registerTool('set_dev_port', {
     description: 'Change the dev server port the proxy forwards to',
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       port: z.number().describe('The dev server port (e.g. 3000, 5173, 8080)'),
     },

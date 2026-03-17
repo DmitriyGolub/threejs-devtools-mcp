@@ -4,7 +4,7 @@
 import { ok, toolOk } from './test-runner.mjs';
 
 export async function testSceneTree(client) {
-  const resp = await client.callTool('scene_tree', { depth: 2 });
+  const resp = await client.callTool('scene_tree', { depth: 2, compact: false });
   const data = toolOk('scene_tree', resp);
   if (data) {
     ok('scene has type', data.type === 'Scene');

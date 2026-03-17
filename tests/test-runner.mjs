@@ -3,6 +3,7 @@
  */
 let passed = 0;
 let failed = 0;
+let skipped = 0;
 const results = [];
 
 export function ok(name, condition, detail = '') {
@@ -15,6 +16,12 @@ export function ok(name, condition, detail = '') {
     results.push({ name, status: 'fail', detail });
     console.log(`  ✗ ${name}${detail ? ': ' + detail : ''}`);
   }
+}
+
+export function skip(name, reason = '') {
+  skipped++;
+  results.push({ name, status: 'skip', detail: reason });
+  console.log(`  ⊘ ${name}${reason ? ': ' + reason : ''} (skipped)`);
 }
 
 export function toolOk(name, resp) {
@@ -32,6 +39,8 @@ export function toolOk(name, resp) {
 }
 
 export function summary() {
-  console.log(`\n═══ ${passed} passed, ${failed} failed ═══\n`);
+  const parts = [`${passed} passed`, `${failed} failed`];
+  if (skipped > 0) parts.push(`${skipped} skipped`);
+  console.log(`\n═══ ${parts.join(', ')} ═══\n`);
   return failed === 0;
 }

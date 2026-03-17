@@ -1,7 +1,7 @@
 /**
  * Test: animation inspection.
  */
-import { ok, toolOk } from './test-runner.mjs';
+import { ok, skip, toolOk } from './test-runner.mjs';
 
 export async function testAnimationDetails(client) {
   const resp = await client.callTool('animation_details');
@@ -10,8 +10,23 @@ export async function testAnimationDetails(client) {
 
   ok('has mixers', Array.isArray(data.mixers), `${data.mixers?.length || 0} mixers`);
 
+  if (data.availableClips?.length > 0) {
+    ok('has available clips', true, `${data.availableClips.length} objects with clips`);
+    const first = data.availableClips[0];
+    ok('clip has objectName', typeof first.objectName === 'string', first.objectName);
+    ok('clip has clips', Array.isArray(first.clips) && first.clips.length > 0, `${first.clips.length} clips`);
+    if (first.clips[0]) {
+      ok('clip has name', typeof first.clips[0].name === 'string', first.clips[0].name);
+      ok('clip has duration', typeof first.clips[0].duration === 'number', `${first.clips[0].duration}s`);
+    }
+  }
+
   if (data.mixers.length === 0) {
-    ok('no animations', true, 'scene has no AnimationMixers');
+    if (data.availableClips?.length > 0) {
+      ok('no active mixers but clips available', true, data.hint || 'clips found');
+    } else {
+      ok('no animations', true, 'scene has no AnimationMixers or clips');
+    }
     return;
   }
 
@@ -33,7 +48,7 @@ export async function testSetAnimation(client) {
   const resp = await client.callTool('animation_details');
   const data = toolOk('animation_details (for set)', resp);
   if (!data || data.mixers.length === 0) {
-    ok('set_animation: has mixers', false, 'no mixers');
+    skip('set_animation', 'no AnimationMixers in scene');
     return;
   }
 

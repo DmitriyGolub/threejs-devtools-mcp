@@ -9,89 +9,181 @@ import { getThreeModule } from '../discovery.js';
 
 // ── animation_details ────────────────────────────────────
 
+function serializeMixer(mixer: any) {
+  const actions = mixer._actions || [];
+  return {
+    time: mixer.time,
+    timeScale: mixer.timeScale,
+    root: mixer._root?.name || mixer._root?.uuid || 'unknown',
+    actions: actions.map((a: any) => ({
+      clipName: a._clip?.name || 'unnamed',
+      clipDuration: a._clip?.duration || 0,
+      isRunning: a.isRunning?.() ?? false,
+      paused: a.paused,
+      weight: a.weight,
+      effectiveWeight: a.getEffectiveWeight?.() ?? a.weight,
+      timeScale: a.timeScale,
+      effectiveTimeScale: a.getEffectiveTimeScale?.() ?? a.timeScale,
+      time: a.time,
+      loop: a.loop,
+      repetitions: a.repetitions,
+      clampWhenFinished: a.clampWhenFinished,
+    })),
+  };
+}
+
+/** Check if an object looks like an AnimationMixer */
+function isMixer(obj: any): boolean {
+  return obj && typeof obj.time === 'number' && typeof obj.timeScale === 'number'
+    && Array.isArray(obj._actions) && typeof obj.clipAction === 'function';
+}
+
 export const animationDetailsHandler: Handler = (ctx) => {
   const mixers: any[] = [];
+  const seen = new Set<any>();
 
-  // Three.js doesn't expose a global mixer list. We search for __r3f or common patterns.
-  // Strategy 1: Check R3F fiber store for animations
-  // Strategy 2: Traverse scene for objects with animation-related userData
-  // Strategy 3: Look for AnimationMixer instances on __r3f roots
-
-  // Find all canvases with __r3f store
-  const canvases = document.querySelectorAll('canvas');
-  for (const canvas of canvases) {
-    const r3f = (canvas as any).__r3f;
-    if (!r3f) continue;
-
-    // R3F stores root state
-    const root = r3f.store?.getState?.() || r3f.root?.getState?.();
-    if (!root) continue;
-
-    // Look for animation mixers in the R3F internal state
-    // They're usually attached to objects via useAnimations
-    break;
+  function addMixer(mixer: any) {
+    if (!mixer || seen.has(mixer)) return;
+    seen.add(mixer);
+    mixers.push(serializeMixer(mixer));
   }
 
-  // Fallback: traverse scene for objects with animation data
-  const animatedObjects: any[] = [];
+  // Strategy 1: Global mixer registry
+  const globalMixers = (window as any).__THREE_ANIMATION_MIXERS__;
+  if (Array.isArray(globalMixers)) {
+    for (const mixer of globalMixers) addMixer(mixer);
+  }
+
+  // Strategy 2: Traverse scene for mixers on objects (userData, __mixer, or R3F fiber refs)
   ctx.scene.traverse((obj: any) => {
-    // Check for AnimationMixer stored on the object
-    if (obj.userData?.__mixer || obj.__mixer) {
-      const mixer = obj.userData.__mixer || obj.__mixer;
-      animatedObjects.push({ obj, mixer });
+    // Direct attachment
+    if (isMixer(obj.userData?.__mixer)) addMixer(obj.userData.__mixer);
+    if (isMixer(obj.__mixer)) addMixer(obj.__mixer);
+
+    // R3F fiber node: walk __r3f.objects Map and check refs for mixers
+    const r3f = obj.__r3f;
+    if (r3f) {
+      // R3F v9+: r3f.memoizedProps may contain animations or mixer refs
+      // R3F stores local state in fiber nodes; walk primitive objects
+      if (r3f.objects) {
+        try {
+          r3f.objects.forEach((child: any) => {
+            if (isMixer(child)) addMixer(child);
+          });
+        } catch { /* Map iteration may fail */ }
+      }
+      // Check if parent fiber has animations-related hooks
+      // useAnimations attaches mixer to a ref — check __r3f.handlers or eventCount
+    }
+
+    // Check all own properties for mixer instances (covers custom attachments)
+    for (const key of Object.keys(obj)) {
+      if (key.startsWith('_') || key === 'parent' || key === 'children') continue;
+      if (isMixer(obj[key])) addMixer(obj[key]);
     }
   });
 
-  // Also check for global AnimationMixer via window
-  const globalMixers = (window as any).__THREE_ANIMATION_MIXERS__;
-  if (Array.isArray(globalMixers)) {
-    for (const mixer of globalMixers) {
-      const actions = mixer._actions || [];
-      mixers.push({
-        time: mixer.time,
-        timeScale: mixer.timeScale,
-        root: mixer._root?.name || mixer._root?.uuid || 'unknown',
-        actions: actions.map((a: any) => ({
-          clipName: a._clip?.name || 'unnamed',
-          clipDuration: a._clip?.duration || 0,
-          isRunning: a.isRunning?.() ?? false,
-          paused: a.paused,
-          weight: a.weight,
-          effectiveWeight: a.getEffectiveWeight?.() ?? a.weight,
-          timeScale: a.timeScale,
-          effectiveTimeScale: a.getEffectiveTimeScale?.() ?? a.timeScale,
-          time: a.time,
-          loop: a.loop,
-          repetitions: a.repetitions,
-          clampWhenFinished: a.clampWhenFinished,
-        })),
-      });
+  // Strategy 3: R3F store — walk internal subscribers and check refs
+  const r3fRoot = (ctx.scene as any).__r3f?.root;
+  const r3fState = typeof r3fRoot?.getState === 'function' ? r3fRoot.getState() : null;
+
+  // Also try canvas.__r3f
+  if (!r3fState) {
+    const canvases = document.querySelectorAll('canvas');
+    for (const canvas of canvases) {
+      const r3f = (canvas as any).__r3f;
+      if (!r3f) continue;
+      const root = r3f.store?.getState?.() || r3f.root?.getState?.();
+      if (root) { Object.assign(r3fState || {}, root); break; }
     }
   }
 
-  // If no global registry, try to find mixers by traversing prototype chains
-  // This is a best-effort approach since Three.js doesn't have a mixer registry
-  if (mixers.length === 0 && animatedObjects.length > 0) {
-    for (const { mixer } of animatedObjects) {
-      const actions = mixer._actions || [];
-      mixers.push({
-        time: mixer.time,
-        timeScale: mixer.timeScale,
-        root: mixer._root?.name || mixer._root?.uuid || 'unknown',
-        actions: actions.map((a: any) => ({
-          clipName: a._clip?.name || 'unnamed',
-          clipDuration: a._clip?.duration || 0,
-          isRunning: a.isRunning?.() ?? false,
-          paused: a.paused,
-          weight: a.weight,
-          timeScale: a.timeScale,
-          time: a.time,
-        })),
-      });
+  const storeState = r3fState || ((): any => {
+    const canvases = document.querySelectorAll('canvas');
+    for (const c of canvases) {
+      const r = (c as any).__r3f;
+      const s = r?.store?.getState?.() || r?.root?.getState?.();
+      if (s) return s;
+    }
+    return null;
+  })();
+
+  let activeMixerCount = 0;
+  if (storeState?.internal?.subscribers) {
+    for (const sub of storeState.internal.subscribers) {
+      // Check if subscriber ref holds a mixer directly
+      const ref = sub?.ref?.current;
+      if (isMixer(ref)) { addMixer(ref); continue; }
+
+      // Detect useAnimations pattern: subscriber source contains 'mixer.update'
+      if (typeof ref === 'function') {
+        const src = ref.toString();
+        if (src.includes('mixer') && src.includes('update')) {
+          activeMixerCount++;
+        }
+      }
     }
   }
 
-  return { mixers };
+  // Strategy 4: Check for objects with .animations array (GLTF data)
+  const clips: any[] = [];
+  ctx.scene.traverse((obj: any) => {
+    if (obj.animations && obj.animations.length > 0) {
+      clips.push({
+        objectName: obj.name || obj.uuid,
+        objectType: obj.type,
+        clips: obj.animations.map((clip: any) => ({
+          name: clip.name,
+          duration: clip.duration,
+          tracks: clip.tracks?.length || 0,
+        })),
+      });
+    }
+  });
+
+  // Strategy 5: Detect loaded animation GLBs via performance resource entries
+  let loadedGlbs: string[] = [];
+  try {
+    loadedGlbs = [...new Set(
+      performance.getEntriesByType('resource')
+        .map((e: any) => { try { return new URL(e.name).pathname; } catch { return ''; } })
+        .filter((p: string) => /\.(glb|gltf)$/i.test(p))
+    )];
+  } catch { /* performance API may not be available */ }
+
+  // Strategy 6: Check SkinnedMesh presence — implies character with potential animations
+  const skinnedMeshes: any[] = [];
+  ctx.scene.traverse((obj: any) => {
+    if (obj.isSkinnedMesh) {
+      skinnedMeshes.push({
+        name: obj.name || obj.uuid,
+        boneCount: obj.skeleton?.bones?.length || 0,
+        parentName: obj.parent?.name || '',
+      });
+    }
+  });
+
+  // Build response
+  const noMixersFound = mixers.length === 0;
+  const hasR3fMixerActivity = activeMixerCount > 0;
+  const hasSkeletons = skinnedMeshes.length > 0;
+
+  return {
+    mixers,
+    ...(clips.length > 0 ? { availableClips: clips } : {}),
+    ...(activeMixerCount > 0 ? { activeMixersDetected: activeMixerCount } : {}),
+    ...(skinnedMeshes.length > 0 ? { skinnedMeshes } : {}),
+    ...(loadedGlbs.length > 0 ? { loadedGlbFiles: loadedGlbs } : {}),
+    ...(noMixersFound && (hasR3fMixerActivity || hasSkeletons) ? {
+      hint: 'Mixer is in a React closure — devtools cannot access it directly.\n'
+        + 'Add 2 lines to your component after useAnimations():\n\n'
+        + '  useEffect(() => {\n'
+        + '    if (group.current) group.current.animations = animations;\n'
+        + '    window.__THREE_ANIMATION_MIXERS__ = [mixer];\n'
+        + '    return () => { window.__THREE_ANIMATION_MIXERS__ = []; };\n'
+        + '  }, [animations, mixer]);',
+    } : {}),
+  };
 };
 
 // ── set_animation ────────────────────────────────────────
@@ -99,37 +191,70 @@ export const animationDetailsHandler: Handler = (ctx) => {
 export const setAnimationHandler: Handler = (ctx, params) => {
   const mixerIndex = (params.mixerIndex as number) || 0;
 
-  // Try to find the mixer
-  const globalMixers = (window as any).__THREE_ANIMATION_MIXERS__;
-  let mixer: any = null;
+  // Find all mixers using the same strategies as animationDetailsHandler
+  const allMixers: any[] = [];
+  const seen = new Set<any>();
 
-  if (Array.isArray(globalMixers) && globalMixers[mixerIndex]) {
-    mixer = globalMixers[mixerIndex];
-  } else {
-    // Traverse scene for mixer
-    ctx.scene.traverse((obj: any) => {
-      if (!mixer && (obj.userData?.__mixer || obj.__mixer)) {
-        mixer = obj.userData.__mixer || obj.__mixer;
-      }
-    });
+  function addMixer(m: any) {
+    if (!m || seen.has(m)) return;
+    seen.add(m);
+    allMixers.push(m);
   }
 
-  if (!mixer) throw new Error('No AnimationMixer found. Expose mixers via window.__THREE_ANIMATION_MIXERS__ = [mixer]');
+  // Global registry
+  const globalMixers = (window as any).__THREE_ANIMATION_MIXERS__;
+  if (Array.isArray(globalMixers)) {
+    for (const m of globalMixers) addMixer(m);
+  }
+
+  // Traverse scene
+  ctx.scene.traverse((obj: any) => {
+    if (isMixer(obj.userData?.__mixer)) addMixer(obj.userData.__mixer);
+    if (isMixer(obj.__mixer)) addMixer(obj.__mixer);
+    for (const key of Object.keys(obj)) {
+      if (key.startsWith('_') || key === 'parent' || key === 'children') continue;
+      if (isMixer(obj[key])) addMixer(obj[key]);
+    }
+  });
+
+  const mixer = allMixers[mixerIndex];
+  if (!mixer) throw new Error(
+    'No AnimationMixer found. In React Three Fiber, add this to your component:\n'
+    + '  useEffect(() => { window.__THREE_ANIMATION_MIXERS__ = [mixer]; }, [mixer]);\n'
+    + 'For vanilla Three.js: window.__THREE_ANIMATION_MIXERS__ = [mixer];'
+  );
 
   if (params.timeScale !== undefined) mixer.timeScale = params.timeScale as number;
   if (params.time !== undefined) mixer.time = params.time as number;
 
   // Control specific action by clip name
   if (params.clipName !== undefined) {
-    const actions = mixer._actions || [];
-    const action = actions.find((a: any) => a._clip?.name === params.clipName);
-    if (!action) throw new Error(`Action with clip "${params.clipName}" not found`);
+    let action = (mixer._actions || []).find((a: any) => a._clip?.name === params.clipName);
+
+    // Auto-create action from available clips if not yet registered
+    if (!action) {
+      const root = mixer._root;
+      const clip = (root?.animations || []).find((c: any) => c.name === params.clipName);
+      if (clip) {
+        action = mixer.clipAction(clip);
+      }
+    }
+
+    if (!action) {
+      const registered = (mixer._actions || []).map((a: any) => a._clip?.name).filter(Boolean);
+      const available = (mixer._root?.animations || []).map((c: any) => c.name).filter(Boolean);
+      throw new Error(
+        `Clip "${params.clipName}" not found.\n`
+        + `Registered actions: ${registered.join(', ') || 'none'}\n`
+        + `Available clips on group: ${available.join(', ') || 'none — expose clips via: group.animations = gltf.animations'}`
+      );
+    }
 
     if (params.actionWeight !== undefined) action.weight = params.actionWeight as number;
     if (params.actionTimeScale !== undefined) action.timeScale = params.actionTimeScale as number;
     if (params.actionPaused !== undefined) action.paused = !!params.actionPaused;
-    if (params.play) action.play();
-    if (params.stop) action.stop();
+    if (params.play) action.reset().fadeIn(0.3).play();
+    if (params.stop) action.fadeOut(0.3).stop();
   }
 
   return {

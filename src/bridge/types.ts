@@ -17,4 +17,4 @@ export interface ThreeContext {
   gl: any;
 }
 
-export type Handler = (ctx: ThreeContext, params: Record<string, unknown>) => unknown;
+export type Handler = (ctx: ThreeContext, params: Record<string, unknown>) => unknown | Promise<unknown>;

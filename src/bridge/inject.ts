@@ -49,6 +49,11 @@ import {
   sceneDiffHandler,
   postprocessingListHandler,
 } from './handlers/diagnostics.js';
+import { consoleCaptureHandler, setupConsoleCapture } from './handlers/console-capture.js';
+import { texturePreviewHandler } from './handlers/texture-preview.js';
+import { perfMonitorHandler } from './handlers/perf-monitor.js';
+import { clickInspectHandler } from './handlers/click-inspect.js';
+import { sceneExportHandler } from './handlers/scene-export.js';
 
 const handlers: Record<string, Handler> = {
   scene_tree: sceneTreeHandler,
@@ -99,6 +104,11 @@ const handlers: Record<string, Handler> = {
   env_map_details: envMapDetailsHandler,
   scene_diff: sceneDiffHandler,
   postprocessing_list: postprocessingListHandler,
+  console_capture: consoleCaptureHandler,
+  texture_preview: texturePreviewHandler,
+  perf_monitor: perfMonitorHandler,
+  click_inspect: clickInspectHandler,
+  scene_export: sceneExportHandler,
 };
 
 function startBridge(): void {
@@ -113,6 +123,7 @@ function startBridge(): void {
   let ctx: ThreeContext | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let replaced = false; // Set when server tells us another tab took over
+  let reconnectAttempts = 0;
 
   function connect(): void {
     if (replaced) return; // Don't reconnect if replaced by another tab
@@ -120,6 +131,7 @@ function startBridge(): void {
     catch { scheduleReconnect(); return; }
 
     ws.onopen = () => {
+      reconnectAttempts = 0;
       console.log('[threejs-devtools-mcp] Connected to MCP server');
       ctx = discoverThreeJS();
       if (ctx) console.log('[threejs-devtools-mcp] Three.js scene found');
@@ -150,7 +162,15 @@ function startBridge(): void {
       }
 
       try {
-        send({ id: request.id, result: handler(ctx, request.params || {}) });
+        const result = handler(ctx, request.params || {});
+        if (result && typeof (result as any).then === 'function') {
+          (result as Promise<unknown>).then(
+            (res) => send({ id: request.id, result: res }),
+            (err) => send({ id: request.id, error: { code: -3, message: (err as Error).message } }),
+          );
+        } else {
+          send({ id: request.id, result });
+        }
       } catch (err) {
         send({ id: request.id, error: { code: -3, message: (err as Error).message } });
       }
@@ -161,8 +181,13 @@ function startBridge(): void {
         console.log('[threejs-devtools-mcp] Replaced by another tab — not reconnecting');
         return;
       }
-      console.log('[threejs-devtools-mcp] Disconnected from MCP server');
-      scheduleReconnect();
+      reconnectAttempts++;
+      if (reconnectAttempts <= 3) {
+        if (reconnectAttempts === 1) console.log('[threejs-devtools-mcp] Disconnected — reconnecting...');
+        scheduleReconnect();
+      } else {
+        console.log('[threejs-devtools-mcp] Server unreachable after 3 attempts — stopped. Reload page to retry.');
+      }
     };
 
     ws.onerror = () => {};
@@ -184,6 +209,7 @@ function startBridge(): void {
 // startBridge after DOM is ready (no artificial setTimeout)
 if (typeof window !== 'undefined') {
   setupCapture();
+  setupConsoleCapture();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', startBridge);
   } else {

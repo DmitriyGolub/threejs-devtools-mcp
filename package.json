@@ -1,6 +1,6 @@
 {
   "name": "threejs-devtools-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "mcpName": "io.github.DmitriyGolub/threejs-devtools",
   "description": "Three.js MCP server — inspect and edit scenes, materials, shaders, lights in real time from any AI agent",
   "author": "DmitriyGolub",
@@ -27,7 +27,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "puppeteer-core": "^24.39.1",
     "ws": "^8.18.0",
     "zod": "^3.24.0"

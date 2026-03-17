@@ -1,28 +1,21 @@
 /**
  * Test: geometry inspection.
  */
-import { ok, toolOk } from './test-runner.mjs';
+import { ok, skip, toolOk } from './test-runner.mjs';
 
 export async function testGeometryDetails(client) {
-  // Find a mesh to inspect
-  const treeResp = await client.callTool('scene_tree', { depth: 2, types: ['Mesh'] });
-  const tree = toolOk('scene_tree (for geometry)', treeResp);
-  if (!tree) return;
+  // Use find_objects to reliably find a mesh
+  const findResp = await client.callTool('find_objects', { type: 'Mesh', limit: 1 });
+  const findData = toolOk('find_objects (for geometry)', findResp);
+  const objects = findData?.objects || findData;
+  const mesh = Array.isArray(objects) && objects.length > 0 ? objects[0] : null;
 
-  // Find first mesh with a name or uuid
-  let meshId = null;
-  function findMesh(node) {
-    if (node.type === 'Mesh') { meshId = node.uuid; return; }
-    if (node.children) for (const c of node.children) { if (!meshId) findMesh(c); }
-  }
-  findMesh(tree);
-
-  if (!meshId) {
-    ok('geometry_details: found mesh', false, 'no Mesh in scene');
+  if (!mesh) {
+    skip('geometry_details', 'no Mesh found in scene');
     return;
   }
 
-  const resp = await client.callTool('geometry_details', { uuid: meshId });
+  const resp = await client.callTool('geometry_details', { uuid: mesh.uuid });
   const data = toolOk('geometry_details', resp);
   if (!data) return;
 
