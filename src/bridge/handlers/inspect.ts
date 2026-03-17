@@ -175,9 +175,13 @@ export const animationDetailsHandler: Handler = (ctx) => {
     ...(skinnedMeshes.length > 0 ? { skinnedMeshes } : {}),
     ...(loadedGlbs.length > 0 ? { loadedGlbFiles: loadedGlbs } : {}),
     ...(noMixersFound && (hasR3fMixerActivity || hasSkeletons) ? {
-      hint: `${hasR3fMixerActivity ? `${activeMixerCount} active AnimationMixer(s) detected in R3F useFrame subscribers, but the mixer is in a JS closure and cannot be inspected directly.` : 'SkinnedMesh found but no AnimationMixer detected.'}`
-        + ' To enable full animation control, expose clips on the group: group.current.animations = gltf.animations'
-        + ' — see https://github.com/AtelierOtome/threejs-devtools-mcp#animations',
+      hint: 'Mixer is in a React closure — devtools cannot access it directly.\n'
+        + 'Add 2 lines to your component after useAnimations():\n\n'
+        + '  useEffect(() => {\n'
+        + '    if (group.current) group.current.animations = animations;\n'
+        + '    window.__THREE_ANIMATION_MIXERS__ = [mixer];\n'
+        + '    return () => { window.__THREE_ANIMATION_MIXERS__ = []; };\n'
+        + '  }, [animations, mixer]);',
     } : {}),
   };
 };
@@ -214,22 +218,43 @@ export const setAnimationHandler: Handler = (ctx, params) => {
   });
 
   const mixer = allMixers[mixerIndex];
-  if (!mixer) throw new Error('No AnimationMixer found. Expose mixers via window.__THREE_ANIMATION_MIXERS__ = [mixer]');
+  if (!mixer) throw new Error(
+    'No AnimationMixer found. In React Three Fiber, add this to your component:\n'
+    + '  useEffect(() => { window.__THREE_ANIMATION_MIXERS__ = [mixer]; }, [mixer]);\n'
+    + 'For vanilla Three.js: window.__THREE_ANIMATION_MIXERS__ = [mixer];'
+  );
 
   if (params.timeScale !== undefined) mixer.timeScale = params.timeScale as number;
   if (params.time !== undefined) mixer.time = params.time as number;
 
   // Control specific action by clip name
   if (params.clipName !== undefined) {
-    const actions = mixer._actions || [];
-    const action = actions.find((a: any) => a._clip?.name === params.clipName);
-    if (!action) throw new Error(`Action with clip "${params.clipName}" not found`);
+    let action = (mixer._actions || []).find((a: any) => a._clip?.name === params.clipName);
+
+    // Auto-create action from available clips if not yet registered
+    if (!action) {
+      const root = mixer._root;
+      const clip = (root?.animations || []).find((c: any) => c.name === params.clipName);
+      if (clip) {
+        action = mixer.clipAction(clip);
+      }
+    }
+
+    if (!action) {
+      const registered = (mixer._actions || []).map((a: any) => a._clip?.name).filter(Boolean);
+      const available = (mixer._root?.animations || []).map((c: any) => c.name).filter(Boolean);
+      throw new Error(
+        `Clip "${params.clipName}" not found.\n`
+        + `Registered actions: ${registered.join(', ') || 'none'}\n`
+        + `Available clips on group: ${available.join(', ') || 'none — expose clips via: group.animations = gltf.animations'}`
+      );
+    }
 
     if (params.actionWeight !== undefined) action.weight = params.actionWeight as number;
     if (params.actionTimeScale !== undefined) action.timeScale = params.actionTimeScale as number;
     if (params.actionPaused !== undefined) action.paused = !!params.actionPaused;
-    if (params.play) action.play();
-    if (params.stop) action.stop();
+    if (params.play) action.reset().fadeIn(0.3).play();
+    if (params.stop) action.fadeOut(0.3).stop();
   }
 
   return {

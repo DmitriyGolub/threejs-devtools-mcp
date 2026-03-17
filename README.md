@@ -201,34 +201,37 @@ mesh.name = "player";
 
 ## Animations
 
-The devtools auto-detect animations in most setups. For **React Three Fiber** apps using `useAnimations`, the AnimationMixer lives inside a React closure and can't be inspected directly. The `animation_details` tool will still report:
-
-- Active mixers detected via R3F useFrame subscribers
-- SkinnedMesh objects with bone counts
-- Loaded `.glb`/`.gltf` files (via performance API)
-
-To enable **full animation control** (play/pause/stop, change weights and timeScale), expose the clips on the group:
+Works out of the box with vanilla Three.js. For **React Three Fiber** with `useAnimations`, add 2 lines to expose the mixer and clips:
 
 ```tsx
-import { useGLTF, useAnimations } from '@react-three/drei';
+const { actions, mixer } = useAnimations(animations, group);
 
-function Character() {
-  const group = useRef<THREE.Group>(null);
-  const { animations, scene } = useGLTF('/character.glb');
-  const { actions, mixer } = useAnimations(animations, group);
-
-  // Expose for devtools — one line:
-  useEffect(() => { if (group.current) group.current.animations = animations; }, [animations]);
-
-  return <group ref={group}><primitive object={scene} /></group>;
-}
+// Add this — enables devtools animation control:
+useEffect(() => {
+  if (group.current) group.current.animations = animations;
+  window.__THREE_ANIMATION_MIXERS__ = [mixer];
+  return () => { window.__THREE_ANIMATION_MIXERS__ = []; };
+}, [animations, mixer]);
 ```
 
-For vanilla Three.js, register your mixer globally:
+**Why is this needed?** R3F's `useAnimations` stores the AnimationMixer in a React closure. JavaScript has no way to access closure variables from outside — the devtools can detect that a mixer is active (via useFrame subscriber analysis), but cannot control it without a global reference.
+
+**Without these lines**, `animation_details` will still report:
+- Active mixer detected (via R3F subscriber analysis)
+- SkinnedMesh objects with bone counts
+- Loaded `.glb`/`.gltf` files
+
+**With these lines**, you get full control:
+- Play/pause/stop any animation clip
+- Crossfade between animations
+- Adjust timeScale, weights
+- Auto-creates actions from available clips (no need to pre-register)
+
+For vanilla Three.js:
 
 ```js
-const mixer = new THREE.AnimationMixer(model);
 window.__THREE_ANIMATION_MIXERS__ = [mixer];
+model.animations = gltf.animations; // if using GLTFLoader
 ```
 
 ## How it works
