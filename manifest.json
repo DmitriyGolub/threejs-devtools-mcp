@@ -1,0 +1,87 @@
+{
+  "manifest_version": "0.3",
+  "name": "threejs-devtools-mcp",
+  "display_name": "Three.js DevTools",
+  "version": "0.3.0",
+  "description": "Inspect and edit Three.js scenes in real time — 52 tools for objects, materials, shaders, textures, animations, performance, memory diagnostics, and code generation.",
+  "author": {
+    "name": "DmitriyGolub",
+    "url": "https://github.com/DmitriyGolub"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DmitriyGolub/threejs-devtools-mcp"
+  },
+  "homepage": "https://github.com/DmitriyGolub/threejs-devtools-mcp",
+  "support": "https://github.com/DmitriyGolub/threejs-devtools-mcp/issues",
+  "keywords": ["threejs", "three.js", "devtools", "debugging", "3d", "webgl", "react-three-fiber"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"]
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "tools": [
+    { "name": "scene_tree", "description": "List all objects in the scene tree" },
+    { "name": "object_details", "description": "Get detailed info about a specific object" },
+    { "name": "material_list", "description": "List all materials in the scene" },
+    { "name": "material_details", "description": "Get full properties of a material" },
+    { "name": "set_material_property", "description": "Set a material property (color, roughness, etc.)" },
+    { "name": "shader_list", "description": "List all compiled shader programs" },
+    { "name": "shader_source", "description": "Get vertex/fragment shader source" },
+    { "name": "set_uniform", "description": "Set a shader uniform value" },
+    { "name": "texture_list", "description": "List all textures with details" },
+    { "name": "texture_details", "description": "Get detailed texture info" },
+    { "name": "texture_preview", "description": "Preview a texture as a PNG image" },
+    { "name": "set_texture", "description": "Modify texture properties" },
+    { "name": "renderer_info", "description": "Get renderer stats" },
+    { "name": "renderer_settings", "description": "Get renderer configuration" },
+    { "name": "set_renderer", "description": "Modify renderer settings" },
+    { "name": "take_screenshot", "description": "Capture a screenshot of the scene" },
+    { "name": "set_object_transform", "description": "Set position, rotation, scale of an object" },
+    { "name": "set_light", "description": "Modify light properties" },
+    { "name": "camera_details", "description": "Get camera properties" },
+    { "name": "set_camera", "description": "Modify camera settings" },
+    { "name": "fog_details", "description": "Get scene fog settings" },
+    { "name": "set_fog", "description": "Modify scene fog" },
+    { "name": "animation_details", "description": "List animation mixers, clips, and playback state" },
+    { "name": "set_animation", "description": "Control animation playback" },
+    { "name": "skeleton_details", "description": "List skeletons and bones" },
+    { "name": "geometry_details", "description": "Inspect geometry attributes" },
+    { "name": "morph_targets", "description": "List morph targets and influences" },
+    { "name": "set_morph_target", "description": "Set morph target influence" },
+    { "name": "find_objects", "description": "Search objects by type, material, visibility, name" },
+    { "name": "memory_stats", "description": "GPU memory analysis" },
+    { "name": "dispose_check", "description": "Find potential memory leaks" },
+    { "name": "performance_snapshot", "description": "Get performance analysis" },
+    { "name": "perf_monitor", "description": "Record FPS and frame times" },
+    { "name": "console_capture", "description": "Capture browser console output" },
+    { "name": "click_inspect", "description": "Click-to-inspect mode" },
+    { "name": "scene_export", "description": "Export scene as GLB" },
+    { "name": "scene_diff", "description": "Compare scene state over time" },
+    { "name": "raycast", "description": "Cast rays and get hit objects" },
+    { "name": "highlight_object", "description": "Highlight an object for debugging" },
+    { "name": "toggle_wireframe", "description": "Toggle wireframe mode" },
+    { "name": "bounding_boxes", "description": "Show/hide bounding boxes" },
+    { "name": "run_js", "description": "Execute JavaScript with scene access" },
+    { "name": "gltf_to_r3f", "description": "Convert GLTF to React Three Fiber component" },
+    { "name": "add_helper", "description": "Add visual debug helpers" },
+    { "name": "remove_helper", "description": "Remove debug helpers" },
+    { "name": "shadow_details", "description": "Inspect shadow maps" },
+    { "name": "set_shadow", "description": "Modify shadow settings" },
+    { "name": "scene_background", "description": "Inspect environment and background" },
+    { "name": "env_map_details", "description": "Inspect environment maps" },
+    { "name": "layer_details", "description": "Show layer assignments" },
+    { "name": "set_layers", "description": "Set layers on objects" },
+    { "name": "postprocessing_list", "description": "List post-processing passes" }
+  ]
+}

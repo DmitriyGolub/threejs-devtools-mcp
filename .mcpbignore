@@ -1,0 +1,11 @@
+.claude/
+.mcpregistry_*
+release-notes.txt
+linkedin-post.txt
+screenshots/
+tests/
+src/
+tsconfig.json
+tsup.config.ts
+.github/
+.gitignore
