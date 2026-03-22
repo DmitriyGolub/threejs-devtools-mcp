@@ -45,6 +45,7 @@ import { testPerfMonitor } from './test-perf-monitor.mjs';
 import { testClickInspect } from './test-click-inspect.mjs';
 import { testSceneExport } from './test-scene-export.mjs';
 import { testToggleOverlay, testOverlaySelected } from './test-overlay.mjs';
+import { testAnnotatedScreenshot } from './test-annotated-screenshot.mjs';
 
 const serverDir = path.resolve(import.meta.dirname, '..');
 const client = createTestClient(serverDir);
@@ -226,6 +227,9 @@ try {
 
   console.log('\n── Overlay Selected ──');
   await testOverlaySelected(client);
+
+  console.log('\n── Annotated Screenshot ──');
+  await testAnnotatedScreenshot(client);
 
   // ── Config (last, may change port) ──
   console.log('\n── Config ──');
