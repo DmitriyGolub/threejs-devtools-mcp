@@ -19,11 +19,11 @@ export const annotatedScreenshotHandler: Handler = (ctx, params) => {
   ctx.scene.traverse((obj: any) => {
     if (!obj.name || obj === ctx.scene || obj.visible === false) return;
     if (obj.isBone || obj.isHelper) return;
-    // Skip structural containers at origin (Scene, Group, Armature with no meaningful position)
-    if ((obj.isGroup || obj.isScene || obj.type === 'Object3D') &&
-        obj.position.x === 0 && obj.position.y === 0 && obj.position.z === 0) return;
     if (obj.type === 'Bone' || obj.name === 'Armature') return;
-    const pos = new V3(); obj.getWorldPosition(pos); pos.project(cam);
+    // Skip ANY object at world origin (0,0,0) — not meaningful position
+    const pos = new V3(); obj.getWorldPosition(pos);
+    if (Math.abs(pos.x) < 0.01 && Math.abs(pos.y) < 0.01 && Math.abs(pos.z) < 0.01) return;
+    pos.project(cam);
     if (pos.z < -1 || pos.z > 1) return;
     const sx = ((pos.x + 1) / 2) * w, sy = ((1 - pos.y) / 2) * h;
     if (sx < 0 || sx > w || sy < 0 || sy > h) return;
@@ -42,10 +42,9 @@ export const annotatedScreenshotHandler: Handler = (ctx, params) => {
   }
   for (const [base, items] of groups) {
     if (items.length <= 2) { labels.push(...items); continue; }
-    // Position = average of all group members (label appears over the objects)
-    const ax = items.reduce((s, l) => s + l.x, 0) / items.length;
-    const ay = items.reduce((s, l) => s + l.y, 0) / items.length;
-    labels.push({ name: `${base} (\u00D7${items.length})`, x: ax, y: ay, type: items[0].type, lx: 0, ly: 0 });
+    // Pick member closest to camera (highest screen Y = most visible, bottom of screen)
+    items.sort((a, b) => b.y - a.y);
+    labels.push({ ...items[0], name: `${base} (\u00D7${items.length})` });
   }
 
   // Spread clustered labels: if multiple labels within 50px, distribute in a circle
