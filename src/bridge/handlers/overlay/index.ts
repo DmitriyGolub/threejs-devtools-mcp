@@ -85,7 +85,7 @@ export const overlaySelectedHandler: Handler = (_ctx) => {
   if (!obj) {
     return { error: 'No object selected in overlay. Open the overlay (toggle_overlay) and click an object in the scene tree first.' };
   }
-  return collectObjectInfo(obj);
+  return { info: collectObjectInfo(obj) };
 };
 
 export function autoShowOverlay(ctx: ThreeContext): void {

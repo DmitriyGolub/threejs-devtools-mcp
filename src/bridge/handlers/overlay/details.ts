@@ -74,7 +74,7 @@ export function showDetails(obj: any, det: HTMLElement | null, ctx?: ThreeContex
   };
 
   document.getElementById('__cpbtn')!.onclick = () => {
-    copyToClipboard(JSON.stringify(collectObjectInfo(obj), null, 2), '__cpbtn');
+    copyToClipboard(collectObjectInfo(obj), '__cpbtn');
   };
 }
 
