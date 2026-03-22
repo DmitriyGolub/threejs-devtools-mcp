@@ -516,6 +516,37 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
     }
   });
 
+  server.registerTool('annotated_screenshot', {
+    description: 'Screenshot with labeled object names overlaid at their screen positions. Shows [M]esh, [L]ight, [G]roup, [C]amera tags. Great for AI to understand scene layout visually.',
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    inputSchema: {
+      width: z.number().optional().describe('Width in pixels'),
+      height: z.number().optional().describe('Height in pixels'),
+    },
+  }, async (params) => {
+    try {
+      const result = await bridge.request('annotated_screenshot', (params ?? {}) as Record<string, unknown>, 15000) as {
+        dataUrl: string; width: number; height: number; labelCount: number;
+      };
+      const base64 = result.dataUrl.replace(/^data:image\/png;base64,/, '');
+      let savedPath = '';
+      try {
+        const dir = screenshotsDir();
+        const filename = `annotated-${Date.now()}.png`;
+        savedPath = path.join(dir, filename);
+        fs.writeFileSync(savedPath, Buffer.from(base64, 'base64'));
+      } catch { /* ignore save errors */ }
+      return {
+        content: [
+          { type: 'image' as const, data: base64, mimeType: 'image/png' as const },
+          { type: 'text' as const, text: `Annotated: ${result.width}x${result.height}, ${result.labelCount} labels${savedPath ? `\nSaved: ${savedPath}` : ''}` },
+        ],
+      };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  });
+
   // ── Overlay ──────────────────────────────────────────────
 
   bridgeTool(server, bridge, 'toggle_overlay',

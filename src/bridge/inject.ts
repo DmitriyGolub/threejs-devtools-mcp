@@ -11,6 +11,7 @@ import { shaderSourceHandler, shaderListHandler } from './handlers/shader.js';
 import { textureListHandler, textureDetailsHandler } from './handlers/texture.js';
 import { rendererInfoHandler } from './handlers/renderer.js';
 import { screenshotHandler } from './handlers/screenshot.js';
+import { annotatedScreenshotHandler } from './handlers/annotated-screenshot.js';
 import {
   setMaterialPropertyHandler,
   setUniformHandler,
@@ -67,6 +68,7 @@ const handlers: Record<string, Handler> = {
   texture_details: textureDetailsHandler,
   renderer_info: rendererInfoHandler,
   take_screenshot: screenshotHandler,
+  annotated_screenshot: annotatedScreenshotHandler,
   set_material_property: setMaterialPropertyHandler,
   set_uniform: setUniformHandler,
   set_object_transform: setObjectTransformHandler,
