@@ -26,6 +26,7 @@ export function setupCapture(): void {
     if (obj.isWebGLRenderer || obj.domElement instanceof HTMLCanvasElement) {
       setCapturedRenderer(obj);
       tryCaptureThreeModule(obj);
+      interceptRender(obj);
     }
     if (obj.isCamera && !getCaptured().camera) setCapturedCamera(obj);
     if (getCaptured().scene && getCaptured().renderer) notifySceneReady();
@@ -67,6 +68,17 @@ export function setupCapture(): void {
       notifySceneReady();
     }
   }, 500);
+}
+
+/** Intercept renderer.render() to capture camera from render(scene, camera) */
+function interceptRender(r: any): void {
+  if (r.__tdt_rp) return;
+  const orig = r.render.bind(r);
+  r.render = (s: any, c: any) => {
+    if (c?.isCamera && !getCaptured().camera) setCapturedCamera(c);
+    return orig(s, c);
+  };
+  r.__tdt_rp = true;
 }
 
 /** Notify overlay auto-show callback when scene is first discovered */
