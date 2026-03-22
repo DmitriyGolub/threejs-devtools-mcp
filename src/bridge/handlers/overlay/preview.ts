@@ -34,9 +34,10 @@ function getCtors(ctx: ThreeContext): Record<string, any> {
   return c;
 }
 function getRenderer(ctx: ThreeContext, sz: number): any {
-  if (_pr) { _pr.setSize(sz, sz, false); return _pr; }
+  if (_pr) { try { _pr.dispose(); } catch { /* */ } }
   try {
     const cv = document.createElement('canvas');
+    cv.style.width = '100%'; cv.style.height = '100%'; cv.style.display = 'block';
     _pr = new (ctx.renderer.constructor)({ canvas: cv, antialias: true, alpha: true });
     _pr.setSize(sz, sz, false);
     return _pr;
@@ -49,13 +50,24 @@ export function objectPreview(ctx: ThreeContext, container: HTMLElement, obj: an
     const c = getCtors(ctx), r = getRenderer(ctx, sz);
     if (!r || !c.Scene || !c.PCam || !c.V3) return null;
     const scene = new c.Scene();
-    // InstancedMesh with custom shaders can't be cloned (instanceMatrix missing)
-    if (obj.isInstancedMesh) return null;
-    let target: any; try { target = obj.clone(true); } catch { return null; }
-    // Skip if any child is InstancedMesh (would break shaders)
-    let hasInstanced = false;
-    target.traverse((ch: any) => { if (ch.isInstancedMesh) hasInstanced = true; });
-    if (hasInstanced) return null;
+    let target: any;
+    try {
+      if (obj.isInstancedMesh && c.Mesh) {
+        // Convert InstancedMesh to regular Mesh (avoids instanceMatrix shader errors)
+        target = new c.Mesh(obj.geometry, obj.material);
+        target.position.copy(obj.position); target.rotation.copy(obj.rotation); target.scale.copy(obj.scale);
+      } else {
+        target = obj.clone(true);
+      }
+    } catch { return null; }
+    // Convert InstancedMesh children to regular Mesh
+    target.traverse((ch: any) => {
+      if (ch.isInstancedMesh && ch.parent && c.Mesh) {
+        const m = new c.Mesh(ch.geometry, ch.material);
+        m.position.copy(ch.position); m.rotation.copy(ch.rotation); m.scale.copy(ch.scale);
+        ch.parent.add(m); ch.parent.remove(ch);
+      }
+    });
     scene.add(target);
     const mn = new c.V3(Infinity, Infinity, Infinity), mx = new c.V3(-Infinity, -Infinity, -Infinity);
     let srcMat: any = null;
@@ -65,7 +77,13 @@ export function objectPreview(ctx: ThreeContext, container: HTMLElement, obj: an
       if (ch.material) {
         ch.material = Array.isArray(ch.material) ? ch.material.map((m: any) => m.clone()) : ch.material.clone();
         const ms = Array.isArray(ch.material) ? ch.material : [ch.material];
-        for (const m of ms) { m.wireframe = false; if (m.emissive) m.emissive.setRGB(0, 0, 0); }
+        for (const m of ms) {
+          m.wireframe = false; if (m.emissive) m.emissive.setRGB(0, 0, 0);
+          // Strip compressed texture placeholders (tiny images can't be re-uploaded to 2nd renderer)
+          for (const k of ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap','alphaMap']) {
+            if (m[k]?.image && m[k].image.width <= 4) m[k] = null;
+          }
+        }
         if (!srcMat) srcMat = ms[0];
       }
       // Compute bounds
@@ -101,6 +119,10 @@ export function materialPreview(ctx: ThreeContext, container: HTMLElement, mat: 
     const scene = new c.Scene(), geo = makeSphere(c); if (!geo) return null;
     const pvMat = mat.clone(); pvMat.wireframe = false;
     if (pvMat.emissive) pvMat.emissive.setRGB(0, 0, 0);
+    // Strip compressed texture placeholders (can't re-upload to 2nd renderer)
+    for (const k of ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap','alphaMap']) {
+      if (pvMat[k]?.image && pvMat[k].image.width <= 4) pvMat[k] = null;
+    }
     scene.add(new c.Mesh(geo, pvMat));
     if (c.AL) scene.add(new c.AL(0x606060));
     if (c.DL) { const d = new c.DL(0xffffff, 1.2); d.position.set(3, 4, 5); scene.add(d); }

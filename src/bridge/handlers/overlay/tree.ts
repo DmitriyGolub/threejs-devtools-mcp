@@ -31,10 +31,15 @@ export function buildTree(ctx: ThreeContext, container: HTMLElement | null, call
     arrow.textContent = '\u203A';
     row.appendChild(arrow);
 
-    const badge = document.createElement('span');
-    badge.className = '__ti ' + info.cls;
-    badge.textContent = info.tag;
-    row.appendChild(badge);
+    if (obj.isInstancedMesh) {
+      const b1 = document.createElement('span'); b1.className = '__ti inst'; b1.textContent = 'I';
+      const b2 = document.createElement('span'); b2.className = '__ti mesh'; b2.textContent = 'M';
+      row.appendChild(b1); row.appendChild(b2);
+    } else {
+      const badge = document.createElement('span');
+      badge.className = '__ti ' + info.cls; badge.textContent = info.tag;
+      row.appendChild(badge);
+    }
 
     const nameEl = document.createElement('span');
     nameEl.className = '__tn';

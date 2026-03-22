@@ -102,10 +102,10 @@ export const CSS = /* css */ `
 .__dv{color:var(--fg);font-weight:500;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto}
 
 /* preview */
-.__pv{width:100%!important;height:auto!important;aspect-ratio:1;border-radius:8px;display:block;cursor:grab}
+.__pv{width:100%!important;height:100%!important;border-radius:8px;display:block;cursor:grab;object-fit:contain}
 .__pv:active{cursor:grabbing}
-.__pv_wrap{position:relative;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;margin-bottom:8px;overflow:hidden}
-.__pv_loading{padding:40px 0;text-align:center;color:var(--fg3);font-size:10px}
+.__pv_wrap{position:relative;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;margin-bottom:8px;overflow:hidden;aspect-ratio:1;max-height:300px}
+.__pv_loading{aspect-ratio:1;max-height:300px;display:flex;align-items:center;justify-content:center;color:var(--fg3);font-size:10px}
 
 /* copy button */
 .__cp{display:block;width:100%;margin-top:10px;padding:7px 0;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;color:#22c55e;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.3px}
