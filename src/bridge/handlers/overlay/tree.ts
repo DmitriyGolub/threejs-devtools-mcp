@@ -19,7 +19,7 @@ export function buildTree(ctx: ThreeContext, container: HTMLElement | null, call
     const info = getTypeInfo(obj);
     const kids = (obj.children || []).filter((c: any) => c.name !== '__tdt_highlight_box');
     const hasKids = kids.length > 0;
-    const isExpanded = _expandedPaths.has(path) || (depth < 1);
+    const isExpanded = _expandedPaths.has(path);
     const wrap = document.createElement('div');
 
     const row = document.createElement('div');
