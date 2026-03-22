@@ -1,4 +1,4 @@
-/** Annotated screenshot — scene capture with text labels on ALL named objects. */
+/** Annotated screenshot — scene capture with smart-filtered object labels. */
 import type { Handler } from '../types.js';
 
 export const annotatedScreenshotHandler: Handler = (ctx, params) => {
@@ -10,29 +10,40 @@ export const annotatedScreenshotHandler: Handler = (ctx, params) => {
   let cam = ctx.camera;
   if (!cam) ctx.scene.traverse((o: any) => { if (!cam && o.isCamera) cam = o; });
   if (!cam) return { error: 'No camera found' };
-
   r.render(ctx.scene, cam);
 
-  // Collect ALL named objects with screen positions (full scene traverse)
   const V3 = (ctx.scene.position as any).constructor;
   type Label = { name: string; x: number; y: number; type: string; lx: number; ly: number };
-  const labels: Label[] = [];
+  const raw: Label[] = [];
 
   ctx.scene.traverse((obj: any) => {
     if (!obj.name || obj === ctx.scene || obj.visible === false) return;
-    const pos = new V3();
-    obj.getWorldPosition(pos);
-    pos.project(cam);
+    // Skip bones, helpers, internal objects — only label visual/structural objects
+    if (obj.isBone || obj.isHelper) return;
+    const pos = new V3(); obj.getWorldPosition(pos); pos.project(cam);
     if (pos.z < -1 || pos.z > 1) return;
-    const sx = ((pos.x + 1) / 2) * w;
-    const sy = ((1 - pos.y) / 2) * h;
-    if (sx >= 0 && sx <= w && sy >= 0 && sy <= h) {
-      const t = obj.isLight ? 'L' : obj.isInstancedMesh ? 'IM' : obj.isMesh ? 'M' : obj.isCamera ? 'C' : obj.isGroup ? 'G' : '';
-      labels.push({ name: obj.name, x: sx, y: sy, type: t, lx: 0, ly: 0 });
-    }
+    const sx = ((pos.x + 1) / 2) * w, sy = ((1 - pos.y) / 2) * h;
+    if (sx < 0 || sx > w || sy < 0 || sy > h) return;
+    const t = obj.isLight ? 'L' : obj.isInstancedMesh ? 'IM' : obj.isSkinnedMesh ? 'SK'
+      : obj.isMesh ? 'M' : obj.isCamera ? 'C' : obj.isGroup ? 'G' : '';
+    raw.push({ name: obj.name, x: sx, y: sy, type: t, lx: 0, ly: 0 });
   });
 
-  // Sort by Y then X for anti-overlap
+  // Smart filter: group objects with same base name (strip trailing _N, _N_N)
+  const labels: Label[] = [];
+  const groups = new Map<string, Label[]>();
+  for (const l of raw) {
+    const base = l.name.replace(/_\d+(_\d+)*$/, '');
+    if (!groups.has(base)) groups.set(base, []);
+    groups.get(base)!.push(l);
+  }
+  for (const [base, items] of groups) {
+    if (items.length <= 2) { labels.push(...items); continue; }
+    const cx = w / 2, cy = h / 2;
+    items.sort((a, b) => ((a.x - cx) ** 2 + (a.y - cy) ** 2) - ((b.x - cx) ** 2 + (b.y - cy) ** 2));
+    labels.push({ ...items[0], name: `${base} (\u00D7${items.length})` });
+  }
+
   labels.sort((a, b) => a.y - b.y || a.x - b.x);
 
   const off = document.createElement('canvas');
@@ -40,60 +51,57 @@ export const annotatedScreenshotHandler: Handler = (ctx, params) => {
   const c = off.getContext('2d')!;
   c.drawImage(canvas, 0, 0, w, h);
 
-  const fs = Math.max(10, Math.round(h / 60));
+  const fs = Math.max(11, Math.round(h / 55));
   c.font = `bold ${fs}px system-ui,sans-serif`;
   c.textBaseline = 'bottom';
-  const pad = 4, gap = 2;
-  const ph = fs + pad * 2;
+  const pad = 5, gap = 3, ph = fs + pad * 2;
 
-  // Calculate pill rects with anti-overlap
+  // Anti-overlap: try shifting down, then left/right
   const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+  const collides = (rx: number, ry: number, pw: number) =>
+    placed.some(p => rx < p.x + p.w + gap && rx + pw + gap > p.x && ry < p.y + p.h + gap && ry + ph + gap > p.y);
+
   for (const l of labels) {
     const text = l.type ? `[${l.type}] ${l.name}` : l.name;
     const pw = c.measureText(text).width + pad * 2;
     let rx = Math.max(0, Math.min(l.x - pw / 2, w - pw));
-    let ry = Math.max(0, l.y - 10 - ph);
-    // Push down if overlapping with any placed label
-    for (let tries = 0; tries < 8; tries++) {
-      const hit = placed.some(p => rx < p.x + p.w && rx + pw > p.x && ry < p.y + p.h && ry + ph > p.y);
-      if (!hit) break;
-      ry += ph + gap;
-      if (ry + ph > h) { ry = Math.max(0, l.y - 10 - ph - (tries + 1) * (ph + gap)); break; }
+    let ry = Math.max(0, l.y - 12 - ph);
+    if (collides(rx, ry, pw)) {
+      // Try shifting down
+      for (let i = 0; i < 15; i++) {
+        ry += ph + gap;
+        if (ry + ph > h) break;
+        if (!collides(rx, ry, pw)) break;
+      }
+      // If still colliding, try left then right
+      if (collides(rx, ry, pw)) {
+        ry = Math.max(0, l.y - 12 - ph);
+        for (let dx = 1; dx < 6; dx++) {
+          rx = Math.max(0, Math.min(l.x - pw / 2 + dx * (pw + gap), w - pw));
+          if (!collides(rx, ry, pw)) break;
+          rx = Math.max(0, l.x - pw / 2 - dx * (pw + gap));
+          if (!collides(rx, ry, pw)) break;
+        }
+      }
     }
-    l.lx = rx; l.ly = ry;
-    placed.push({ x: rx, y: ry, w: pw, h: ph });
+    l.lx = Math.max(0, Math.min(rx, w - pw)); l.ly = Math.max(0, Math.min(ry, h - ph));
+    placed.push({ x: l.lx, y: l.ly, w: pw, h: ph });
   }
 
   // Draw
   for (const l of labels) {
     const text = l.type ? `[${l.type}] ${l.name}` : l.name;
     const pw = c.measureText(text).width + pad * 2;
-
-    // Line
+    c.beginPath(); c.moveTo(l.x, l.y); c.lineTo(l.lx + pw / 2, l.ly + ph);
+    c.strokeStyle = 'rgba(255,255,255,0.2)'; c.lineWidth = 1; c.stroke();
+    c.beginPath(); c.arc(l.x, l.y, 3, 0, Math.PI * 2);
+    c.fillStyle = '#22c55e'; c.fill(); c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 1; c.stroke();
     c.beginPath();
-    c.moveTo(l.x, l.y);
-    c.lineTo(l.lx + pw / 2, l.ly + ph);
-    c.strokeStyle = 'rgba(0,0,0,0.4)';
-    c.lineWidth = 1;
-    c.stroke();
-
-    // Dot
-    c.beginPath();
-    c.arc(l.x, l.y, 2.5, 0, Math.PI * 2);
-    c.fillStyle = '#22c55e';
-    c.fill();
-
-    // Pill
-    c.beginPath();
-    if (c.roundRect) c.roundRect(l.lx, l.ly, pw, ph, 3);
-    else c.rect(l.lx, l.ly, pw, ph);
-    c.fillStyle = 'rgba(0,0,0,0.8)';
-    c.fill();
-
-    // Text
-    c.fillStyle = '#fff';
-    c.fillText(text, l.lx + pad, l.ly + ph - pad);
+    if (c.roundRect) c.roundRect(l.lx, l.ly, pw, ph, 4); else c.rect(l.lx, l.ly, pw, ph);
+    c.fillStyle = 'rgba(0,0,0,0.82)'; c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.1)'; c.lineWidth = 0.5; c.stroke();
+    c.fillStyle = '#fff'; c.fillText(text, l.lx + pad, l.ly + ph - pad);
   }
 
-  return { dataUrl: off.toDataURL('image/png'), width: w, height: h, labelCount: labels.length };
+  return { dataUrl: off.toDataURL('image/png'), width: w, height: h, labelCount: labels.length, totalObjects: raw.length };
 };
