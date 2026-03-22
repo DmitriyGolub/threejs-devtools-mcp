@@ -8,13 +8,15 @@ export function collectObjectInfo(obj: any): Record<string, any> {
   const path: string[] = [];
   let cur = obj; while (cur) { path.unshift(cur.name || cur.type || '?'); cur = cur.parent; }
 
+  const isNonZero = (v: any) => v && (v.x !== 0 || v.y !== 0 || v.z !== 0);
+
   const r: Record<string, any> = {
     path: path.join(' > '),
     name: obj.name || '(unnamed)',
     type: obj.type,
-    position: v3(obj.position),
-    rotation: v3(obj.rotation),
   };
+  if (isNonZero(obj.position)) r.position = v3(obj.position);
+  if (isNonZero(obj.rotation)) r.rotation = v3(obj.rotation);
   if (obj.scale && (obj.scale.x !== 1 || obj.scale.y !== 1 || obj.scale.z !== 1))
     r.scale = v3(obj.scale);
   if (!obj.visible) r.visible = false;

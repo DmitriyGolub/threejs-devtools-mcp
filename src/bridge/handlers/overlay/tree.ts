@@ -31,35 +31,17 @@ export function buildTree(ctx: ThreeContext, container: HTMLElement | null, call
     arrow.textContent = '\u203A';
     row.appendChild(arrow);
 
-    if (obj.isInstancedMesh) {
-      const b1 = document.createElement('span'); b1.className = '__ti inst'; b1.textContent = 'I';
-      const b2 = document.createElement('span'); b2.className = '__ti mesh'; b2.textContent = 'M';
-      row.appendChild(b1); row.appendChild(b2);
-    } else {
-      const badge = document.createElement('span');
-      badge.className = '__ti ' + info.cls; badge.textContent = info.tag;
-      row.appendChild(badge);
-    }
+    const badges = obj.isInstancedMesh ? [['I','inst'],['M','mesh']] : [[info.tag, info.cls]];
+    for (const [t, c] of badges) { const b = document.createElement('span'); b.className = '__ti ' + c; b.textContent = t; row.appendChild(b); }
 
     const nameEl = document.createElement('span');
     nameEl.className = '__tn';
     nameEl.textContent = obj.name || '(unnamed)';
     row.appendChild(nameEl);
 
-    if (obj.visible === false) {
-      const hid = document.createElement('span');
-      hid.className = '__th'; hid.textContent = 'HIDDEN';
-      row.appendChild(hid);
-    }
-    if (obj.isInstancedMesh && obj.count > 0) {
-      const ext = document.createElement('span');
-      ext.className = '__tx'; ext.textContent = '\u00D7' + obj.count;
-      row.appendChild(ext);
-    } else if (obj.isLight && obj.intensity !== undefined) {
-      const ext = document.createElement('span');
-      ext.className = '__tx'; ext.textContent = obj.intensity.toFixed(1);
-      row.appendChild(ext);
-    }
+    if (obj.visible === false) { const h = document.createElement('span'); h.className = '__th'; h.textContent = 'HIDDEN'; row.appendChild(h); }
+    const extTxt = obj.isInstancedMesh && obj.count > 0 ? '\u00D7' + obj.count : obj.isLight && obj.intensity !== undefined ? obj.intensity.toFixed(1) : null;
+    if (extTxt) { const ext = document.createElement('span'); ext.className = '__tx'; ext.textContent = extTxt; row.appendChild(ext); }
     wrap.appendChild(row);
 
     const kidsEl = document.createElement('div');

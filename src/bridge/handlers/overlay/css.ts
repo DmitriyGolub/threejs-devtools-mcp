@@ -24,7 +24,7 @@ export const CSS = /* css */ `
 #__tdt.mini .__body,#__tdt.mini .__hbtns{display:none}
 #__tdt.mini .__hdr{justify-content:center;padding:12px;border:none}
 #__tdt.mini .__htitle{display:none}
-#__tdt *{box-sizing:border-box;margin:0;padding:0}
+#__tdt *{box-sizing:border-box;margin:0}
 
 /* header */
 .__hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--bd);cursor:grab}
@@ -43,12 +43,12 @@ export const CSS = /* css */ `
 
 /* section */
 .__s{border-bottom:1px solid var(--bd)}.__s:last-child{border-bottom:none}
-.__sh{display:flex;align-items:center;padding:8px 14px;cursor:pointer;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--fg3);gap:6px;transition:color .15s}
+.__sh{display:flex;align-items:center;padding:10px 14px;cursor:pointer;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--fg3);gap:6px;transition:color .15s}
 .__sh:hover{color:var(--fg2)}
 .__sh svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.5;flex-shrink:0;transition:transform .2s}
 .__sh.open svg{transform:rotate(90deg)}
 .__sh .c{margin-left:auto;font-size:9px;font-weight:600;color:var(--fg3);background:var(--bg3);padding:1px 6px;border-radius:5px;min-width:20px;text-align:center}
-.__sb{padding:0 12px 10px;display:none}.__sb.open{display:block}
+.__sb{padding:2px 14px 12px;display:none}.__sb.open{display:block}
 
 /* stats — 3 columns */
 .__g{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
@@ -92,14 +92,14 @@ export const CSS = /* css */ `
 .__tk{display:none}.__tk.open{display:block}
 
 /* details */
-.__det{margin:8px 0 4px;padding:12px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r)}
-.__dh{font-size:12px;font-weight:700;color:var(--fg);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.__det{margin:8px 0 4px;padding:16px 18px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r)}
+.__dh{font-size:12px;font-weight:700;color:var(--fg);margin-bottom:12px;display:flex;align-items:center;gap:6px}
 .__dc{margin-left:auto;cursor:pointer;color:var(--fg3);font-size:11px;padding:2px 6px;border-radius:5px;transition:all .15s}
 .__dc:hover{color:var(--fg);background:var(--bg3)}
-.__dr{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;font-family:ui-monospace,'Cascadia Code',monospace;border-bottom:1px solid rgba(255,255,255,.04)}
+.__dr{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:11px;font-family:ui-monospace,'Cascadia Code',monospace;border-bottom:1px solid rgba(255,255,255,.04)}
 .__dr:last-of-type{border-bottom:none}
-.__dk{color:var(--fg3);flex-shrink:0;min-width:80px;padding-right:12px}
-.__dv{color:var(--fg);font-weight:500;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;padding-left:8px}
+.__dk{color:var(--fg3);flex-shrink:0;min-width:80px;padding-right:16px}
+.__dv{color:var(--fg);font-weight:500;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;padding-left:12px}
 
 /* preview */
 .__pv{width:100%!important;height:100%!important;border-radius:8px;display:block;cursor:grab;object-fit:contain}
@@ -108,7 +108,7 @@ export const CSS = /* css */ `
 .__pv_loading{aspect-ratio:1;max-height:300px;display:flex;align-items:center;justify-content:center;color:var(--fg3);font-size:10px}
 
 /* copy button */
-.__cp{display:block;width:100%;margin-top:10px;padding:7px 0;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;color:#22c55e;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.3px}
+.__cp{display:block;width:100%;margin-top:12px;padding:8px 0;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;color:#22c55e;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.3px}
 .__cp:hover{background:rgba(34,197,94,.16);border-color:rgba(34,197,94,.35)}
 .__cp:active{transform:scale(.98)}
 

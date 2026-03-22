@@ -1,0 +1,36 @@
+## What's New
+
+### New Tools
+- **`gltf_to_r3f`** — convert GLB/GLTF files to React Three Fiber JSX
+- **`shadow_details` / `set_shadow`** — inspect and modify shadow maps, shadow camera, bias
+- **`scene_background`** — get/set scene background and environment
+- **`toggle_wireframe`** — toggle wireframe on all or specific materials
+- **`bounding_boxes`** — visualize AABBs for debugging frustum culling
+- **`add_helper` / `remove_helper`** — add visual helpers (axes, box, skeleton, etc.)
+
+### Diagnostics
+- **`performance_snapshot`** — draw calls, triangles, memory, texture/geometry counts
+- Scene health checks and validation
+
+### Improvements
+- **Multi-tab discovery** — auto-detects dev server port from running browser tabs
+- **All mutation tools now ask before applying** — AI will ask "runtime preview or code change?" before modifying the scene
+- Expanded `object_details` and `material_details` with more properties
+- Bridge connection resilience improvements
+
+### Registry
+- Published to the [Official MCP Registry](https://registry.modelcontextprotocol.io)
+- Install: `npx threejs-devtools-mcp`
+
+## Install
+
+```json
+{
+  "mcpServers": {
+    "threejs-devtools": {
+      "command": "npx",
+      "args": ["threejs-devtools-mcp"]
+    }
+  }
+}
+```
