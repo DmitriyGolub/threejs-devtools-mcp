@@ -3,6 +3,7 @@
  * Orchestrates DOM creation, tree, details, sections, and loop.
  */
 import type { Handler, ThreeContext } from '../../types.js';
+import { discoverThreeJS } from '../../discovery/index.js';
 import { destroyOverlay, highlightObject, setSelectedUuid, _selectedUuid } from './helpers.js';
 import { createOverlayDOM } from './html.js';
 import { buildTree } from './tree.js';
@@ -11,6 +12,11 @@ import { showMaterialDetails } from './material-details.js';
 import { updateMaterials, updateLights } from './sections.js';
 import { startLoop } from './loop.js';
 import { collectObjectInfo } from './collect.js';
+
+/** Get fresh ctx — camera/renderer may have appeared after auto-show */
+function freshCtx(stale: ThreeContext): ThreeContext {
+  return discoverThreeJS() || stale;
+}
 
 function buildOverlay(ctx: ThreeContext): void {
   const { root, selectedObj: initialSelected } = createOverlayDOM(ctx);
@@ -25,7 +31,7 @@ function buildOverlay(ctx: ThreeContext): void {
     selectedObj = obj;
     (window as any).__tdt_selected = obj;
     highlightObject(obj);
-    showDetails(obj, det, ctx);
+    showDetails(obj, det, freshCtx(ctx));
   }
 
   function doBuildTree(): void {
@@ -35,13 +41,13 @@ function buildOverlay(ctx: ThreeContext): void {
 
   function doUpdateMaterials(): void {
     updateMaterials(ctx, {
-      onMaterialClick: (m) => showMaterialDetails(m, det, ctx),
+      onMaterialClick: (m) => showMaterialDetails(m, det, freshCtx(ctx)),
     });
   }
 
   if (selectedObj) {
     highlightObject(selectedObj);
-    showDetails(selectedObj, det, ctx);
+    showDetails(selectedObj, det, freshCtx(ctx));
   }
 
   startLoop(ctx, {

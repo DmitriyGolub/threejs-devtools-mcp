@@ -21,10 +21,16 @@ function getCtors(ctx: ThreeContext): Record<string, any> {
     if (o.isDirectionalLight && !c.DL) c.DL = o.constructor;
     if (o.isAmbientLight && !c.AL) c.AL = o.constructor;
   });
+  // PCam fallbacks: R3F store → scene traversal
   if (!c.PCam) {
     const root = (ctx.scene as any)?.__r3f?.root;
     const gs = root?.getState || root?.store?.getState;
     if (typeof gs === 'function') { const cam = gs()?.camera; if (cam) c.PCam = cam.constructor; }
+  }
+  if (!c.PCam) {
+    ctx.scene?.traverse((o: any) => {
+      if (!c.PCam && (o.isPerspectiveCamera || o.isOrthographicCamera)) c.PCam = o.constructor;
+    });
   }
   return c;
 }
