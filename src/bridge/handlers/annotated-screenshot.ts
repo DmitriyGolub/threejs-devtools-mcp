@@ -38,9 +38,10 @@ export const annotatedScreenshotHandler: Handler = (ctx, params) => {
   }
   for (const [base, items] of groups) {
     if (items.length <= 2) { labels.push(...items); continue; }
-    const cx = w / 2, cy = h / 2;
-    items.sort((a, b) => ((a.x - cx) ** 2 + (a.y - cy) ** 2) - ((b.x - cx) ** 2 + (b.y - cy) ** 2));
-    labels.push({ ...items[0], name: `${base} (\u00D7${items.length})` });
+    // Position = average of all group members (label appears over the objects)
+    const ax = items.reduce((s, l) => s + l.x, 0) / items.length;
+    const ay = items.reduce((s, l) => s + l.y, 0) / items.length;
+    labels.push({ name: `${base} (\u00D7${items.length})`, x: ax, y: ay, type: items[0].type, lx: 0, ly: 0 });
   }
 
   // Spread clustered labels: if multiple labels within 50px, distribute in a circle
