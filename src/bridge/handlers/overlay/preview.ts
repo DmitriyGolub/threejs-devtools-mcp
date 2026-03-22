@@ -1,6 +1,7 @@
 /** Interactive 3D preview helpers. */
 import type { ThreeContext } from '../../types.js';
 import { attachOrbit } from './orbit.js';
+import { makeGrid, makeAxes, makeSphere } from './grid.js';
 let _pr: any = null;
 
 function getCtors(ctx: ThreeContext): Record<string, any> {
@@ -21,17 +22,15 @@ function getCtors(ctx: ThreeContext): Record<string, any> {
     if (o.isDirectionalLight && !c.DL) c.DL = o.constructor;
     if (o.isAmbientLight && !c.AL) c.AL = o.constructor;
   });
-  // PCam fallbacks: R3F store → scene traversal
-  if (!c.PCam) {
+  if (!c.PCam) { // R3F store
     const root = (ctx.scene as any)?.__r3f?.root;
     const gs = root?.getState || root?.store?.getState;
-    if (typeof gs === 'function') { const cam = gs()?.camera; if (cam) c.PCam = cam.constructor; }
+    if (typeof gs === 'function') c.PCam = gs()?.camera?.constructor;
   }
-  if (!c.PCam) {
-    ctx.scene?.traverse((o: any) => {
-      if (!c.PCam && (o.isPerspectiveCamera || o.isOrthographicCamera)) c.PCam = o.constructor;
-    });
-  }
+  if (!c.PCam) ctx.scene?.traverse((o: any) => { // scene traversal
+    if (!c.PCam && (o.isPerspectiveCamera || o.isOrthographicCamera)) c.PCam = o.constructor;
+  });
+  if (!c.PCam) c.PCam = (window as any).__tdt_PCam; // render() interception cache
   return c;
 }
 function getRenderer(ctx: ThreeContext, sz: number): any {
@@ -43,23 +42,6 @@ function getRenderer(ctx: ThreeContext, sz: number): any {
     return _pr;
   } catch { return null; }
 }
-function makeSphere(c: any): any {
-  if (c.SphereGeometry) return new c.SphereGeometry(1, 32, 32);
-  if (!c.BG || !c.BA) return null;
-  const g = new c.BG(), s = 20, pos: number[] = [], nrm: number[] = [], idx: number[] = [];
-  for (let y = 0; y <= s; y++) for (let x = 0; x <= s; x++) {
-    const u = x / s, v = y / s, t = u * Math.PI * 2, p = v * Math.PI;
-    const px = -Math.cos(t) * Math.sin(p), py = Math.cos(p), pz = Math.sin(t) * Math.sin(p);
-    pos.push(px, py, pz); nrm.push(px, py, pz);
-  }
-  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-    const a = y * (s + 1) + x, b = a + s + 1; idx.push(a, b, a + 1, b, b + 1, a + 1);
-  }
-  g.setIndex(idx);
-  g.setAttribute('position', new c.BA(new Float32Array(pos), 3));
-  g.setAttribute('normal', new c.BA(new Float32Array(nrm), 3));
-  return g;
-}
 export type PreviewCleanup = () => void;
 
 export function objectPreview(ctx: ThreeContext, container: HTMLElement, obj: any, sz = 200): PreviewCleanup | null {
@@ -67,18 +49,26 @@ export function objectPreview(ctx: ThreeContext, container: HTMLElement, obj: an
     const c = getCtors(ctx), r = getRenderer(ctx, sz);
     if (!r || !c.Scene || !c.PCam || !c.V3) return null;
     const scene = new c.Scene();
-    let target: any; try { target = obj.clone(true); } catch { return null; } scene.add(target);
-    // Clone materials so preview isn't affected by wireframe highlight
+    // InstancedMesh with custom shaders can't be cloned (instanceMatrix missing)
+    if (obj.isInstancedMesh) return null;
+    let target: any; try { target = obj.clone(true); } catch { return null; }
+    // Skip if any child is InstancedMesh (would break shaders)
+    let hasInstanced = false;
+    target.traverse((ch: any) => { if (ch.isInstancedMesh) hasInstanced = true; });
+    if (hasInstanced) return null;
+    scene.add(target);
+    const mn = new c.V3(Infinity, Infinity, Infinity), mx = new c.V3(-Infinity, -Infinity, -Infinity);
+    let srcMat: any = null;
+    target.updateMatrixWorld?.(true);
     target.traverse((ch: any) => {
+      // Clone materials — preview must not show wireframe/emissive from highlight
       if (ch.material) {
         ch.material = Array.isArray(ch.material) ? ch.material.map((m: any) => m.clone()) : ch.material.clone();
         const ms = Array.isArray(ch.material) ? ch.material : [ch.material];
         for (const m of ms) { m.wireframe = false; if (m.emissive) m.emissive.setRGB(0, 0, 0); }
+        if (!srcMat) srcMat = ms[0];
       }
-    });
-    const mn = new c.V3(Infinity, Infinity, Infinity), mx = new c.V3(-Infinity, -Infinity, -Infinity);
-    target.updateMatrixWorld?.(true);
-    target.traverse((ch: any) => {
+      // Compute bounds
       if (!ch.geometry?.attributes?.position) return;
       ch.geometry.computeBoundingBox?.();
       const bb = ch.geometry.boundingBox; if (!bb) return;
@@ -89,10 +79,19 @@ export function objectPreview(ctx: ThreeContext, container: HTMLElement, obj: an
     const dist = diag / (2 * Math.tan(Math.PI * 45 / 360));
     if (c.AL) scene.add(new c.AL(0x808080));
     if (c.DL) { const d = new c.DL(0xffffff, 0.9); d.position.set(dist, dist, dist); scene.add(d); }
+    const helpers: any[] = [];
+    const groundY = mn.y;
+    const groundCenter = { x: center.x, y: groundY, z: center.z };
+    const grid = makeGrid(c, groundCenter, groundY, diag * 1.5, srcMat);
+    if (grid) { scene.add(grid); helpers.push(grid); }
+    for (const ax of makeAxes(c, groundCenter, diag * 0.5, srcMat)) { scene.add(ax); helpers.push(ax); }
     const cam = new c.PCam(45, 1, 0.01, diag * 10);
     r.domElement.className = '__pv'; container.innerHTML = ''; container.appendChild(r.domElement);
     attachOrbit(r, scene, cam, center, dist * 1.5);
-    return () => { target.traverse((ch: any) => { ch.geometry?.dispose?.(); ch.material?.dispose?.(); }); };
+    return () => {
+      target.traverse((ch: any) => { ch.geometry?.dispose?.(); ch.material?.dispose?.(); });
+      for (const h of helpers) { h.geometry?.dispose(); h.material?.dispose(); }
+    };
   } catch { return null; }
 }
 export function materialPreview(ctx: ThreeContext, container: HTMLElement, mat: any, sz = 200): PreviewCleanup | null {

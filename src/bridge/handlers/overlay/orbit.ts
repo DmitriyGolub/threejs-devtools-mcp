@@ -5,6 +5,7 @@ export function attachOrbit(
 ): void {
   const cv = r.domElement;
   let theta = 0.8, phi = 1.0, rad = radius;
+  const minRad = radius * 0.1, maxRad = radius * 20;
   let dragging = false, lx = 0, ly = 0;
 
   function update() {
@@ -13,7 +14,10 @@ export function attachOrbit(
       center.y + rad * Math.cos(phi),
       center.z + rad * Math.sin(phi) * Math.sin(theta));
     cam.lookAt(center.x, center.y, center.z);
-    r.render(scene, cam);
+    // Update far plane to always cover the view
+    cam.far = Math.max(rad * 10, 1000);
+    cam.updateProjectionMatrix();
+    try { r.render(scene, cam); } catch { /* shader/WebGL error */ }
   }
 
   cv.addEventListener('mousedown', (e: MouseEvent) => {
@@ -27,7 +31,8 @@ export function attachOrbit(
   });
   document.addEventListener('mouseup', () => { dragging = false; });
   cv.addEventListener('wheel', (e: WheelEvent) => {
-    rad *= e.deltaY > 0 ? 1.12 : 0.88; e.preventDefault(); update();
+    rad = Math.max(minRad, Math.min(maxRad, rad * (e.deltaY > 0 ? 1.15 : 0.87)));
+    e.preventDefault(); update();
   }, { passive: false });
 
   update();

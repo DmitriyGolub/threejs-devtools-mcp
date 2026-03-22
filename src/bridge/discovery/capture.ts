@@ -75,7 +75,11 @@ function interceptRender(r: any): void {
   if (r.__tdt_rp) return;
   const orig = r.render.bind(r);
   r.render = (s: any, c: any) => {
-    if (c?.isCamera && !getCaptured().camera) setCapturedCamera(c);
+    if (c?.isCamera && !getCaptured().camera) {
+      setCapturedCamera(c);
+      // Store constructor globally for preview (ES module apps lack window.THREE)
+      (window as any).__tdt_PCam = c.constructor;
+    }
     return orig(s, c);
   };
   r.__tdt_rp = true;
