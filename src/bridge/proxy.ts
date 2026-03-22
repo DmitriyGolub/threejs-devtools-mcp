@@ -91,6 +91,11 @@ function waitingPage(devPort: number, proxyPort: number): string {
         <div class="feat">Memory analysis</div>
         <div class="feat">Take screenshots</div>
         <div class="feat">Run custom JS</div>
+        <div class="feat">Scene overlay (3D preview)</div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:#888;line-height:1.6">
+        <b>Overlay</b> auto-shows on scene load. To disable, ask the agent or set<br>
+        <code style="background:#222;padding:2px 6px;border-radius:4px">THREEJS_DEVTOOLS_NO_OVERLAY=true</code>
       </div>
     </div>
 
@@ -130,7 +135,8 @@ export function proxyRequest(
       proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
       proxyRes.on('end', () => {
         let body = Buffer.concat(chunks).toString('utf-8');
-        const tag = `<script>window.__THREEJS_DEVTOOLS_PORT__=${proxyPort};${bridgeScript || '/* bridge not found */'}</script>`;
+        const noOverlay = process.env.THREEJS_DEVTOOLS_NO_OVERLAY === '1' || process.env.THREEJS_DEVTOOLS_NO_OVERLAY === 'true';
+        const tag = `<script>${noOverlay ? 'window.__THREEJS_DEVTOOLS_NO_OVERLAY__=true;' : ''}window.__THREEJS_DEVTOOLS_PORT__=${proxyPort};${bridgeScript || '/* bridge not found */'}</script>`;
 
         if (body.includes('<head>')) body = body.replace('<head>', `<head>${tag}`);
         else if (body.includes('<HEAD>')) body = body.replace('<HEAD>', `<HEAD>${tag}`);

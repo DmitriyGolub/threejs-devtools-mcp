@@ -212,8 +212,11 @@ function startBridge(): void {
 // startBridge after DOM is ready (no artificial setTimeout)
 if (typeof window !== 'undefined') {
   // Set callback BEFORE setupCapture so it's ready when scene is discovered
+  // Disable auto-overlay: set window.__THREEJS_DEVTOOLS_NO_OVERLAY__ = true
   (window as any).__tdt_onSceneReady = (ctx: ThreeContext) => {
-    setTimeout(() => { autoShowOverlay(ctx); }, 300);
+    if (!(window as any).__THREEJS_DEVTOOLS_NO_OVERLAY__) {
+      setTimeout(() => { autoShowOverlay(ctx); }, 300);
+    }
   };
 
   setupCapture();
