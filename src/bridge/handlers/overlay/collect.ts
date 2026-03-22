@@ -1,98 +1,77 @@
-/** Collect deep object info for agent clipboard copy. */
+/** Collect concise object info for AI agent — only actionable data for code edits. */
 import { readColorHex } from '../color-utils.js';
 
 export function collectObjectInfo(obj: any): Record<string, any> {
-  const p = (v: any) => v ? { x: +v.x.toFixed(4), y: +v.y.toFixed(4), z: +v.z.toFixed(4) } : undefined;
-  const result: Record<string, any> = {
-    name: obj.name || '(unnamed)', type: obj.type || obj.constructor?.name || '?',
-    uuid: obj.uuid, visible: obj.visible,
-    position: p(obj.position), rotation: p(obj.rotation), scale: p(obj.scale),
-    castShadow: obj.castShadow || false, receiveShadow: obj.receiveShadow || false,
-    frustumCulled: obj.frustumCulled, renderOrder: obj.renderOrder || 0,
-    layers: obj.layers?.mask, childCount: (obj.children || []).length,
-  };
-  const pp: string[] = [];
-  let cur = obj;
-  while (cur) { pp.unshift(cur.name || cur.type || '?'); cur = cur.parent; }
-  result.scenePath = pp.join(' > ');
+  const v3 = (v: any) => v ? [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)] : undefined;
 
+  // Scene path (how to find this object)
+  const path: string[] = [];
+  let cur = obj; while (cur) { path.unshift(cur.name || cur.type || '?'); cur = cur.parent; }
+
+  const r: Record<string, any> = {
+    path: path.join(' > '),
+    name: obj.name || '(unnamed)',
+    type: obj.type,
+    position: v3(obj.position),
+    rotation: v3(obj.rotation),
+  };
+  if (obj.scale && (obj.scale.x !== 1 || obj.scale.y !== 1 || obj.scale.z !== 1))
+    r.scale = v3(obj.scale);
+  if (!obj.visible) r.visible = false;
+  if (obj.castShadow) r.castShadow = true;
+  if (obj.receiveShadow) r.receiveShadow = true;
+
+  // Geometry summary
   if (obj.geometry) {
-    const g = obj.geometry, attrs: Record<string, any> = {};
-    if (g.attributes) for (const [key, attr] of Object.entries(g.attributes)) {
-      const a = attr as any;
-      attrs[key] = { itemSize: a.itemSize, count: a.count, normalized: a.normalized || false };
-    }
-    const p2 = (v: any) => ({ x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(2) });
-    result.geometry = {
-      type: g.type || '?', uuid: g.uuid, vertices: g.attributes?.position?.count || 0,
-      indexed: !!g.index, faces: g.index ? Math.floor(g.index.count / 3) : 0, attributes: attrs,
-      boundingBox: g.boundingBox ? { min: p2(g.boundingBox.min), max: p2(g.boundingBox.max) } : undefined,
-      morphAttributes: g.morphAttributes ? Object.keys(g.morphAttributes) : [],
-    };
+    r.vertices = obj.geometry.attributes?.position?.count || 0;
+    if (obj.geometry.index) r.faces = Math.floor(obj.geometry.index.count / 3);
   }
 
+  // Material — only key properties for code changes
   if (obj.material) {
     const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    result.materials = mats.map((m: any) => collectMat(m));
+    r.materials = mats.map((m: any) => {
+      const mi: Record<string, any> = { name: m.name || m.type, type: m.type };
+      if (m.color) mi.color = readColorHex(m.color);
+      if (m.roughness !== undefined) mi.roughness = m.roughness;
+      if (m.metalness !== undefined) mi.metalness = m.metalness;
+      if (m.opacity < 1) mi.opacity = m.opacity;
+      if (m.transparent) mi.transparent = true;
+      if (m.side === 2) mi.doubleSide = true;
+      // Texture map names
+      const maps: string[] = [];
+      for (const s of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap']) {
+        if (m[s]) maps.push(s);
+      }
+      if (maps.length) mi.textures = maps;
+      // Shader uniforms (only values, no types)
+      if (m.uniforms) {
+        const u: Record<string, any> = {};
+        for (const [k, v] of Object.entries(m.uniforms)) {
+          const val = (v as any).value;
+          if (typeof val === 'number') u[k] = +val.toFixed(3);
+          else if (typeof val === 'boolean') u[k] = val;
+          else if (val?.isColor) u[k] = readColorHex(val);
+          else if (val?.isVector3) u[k] = v3(val);
+        }
+        if (Object.keys(u).length) mi.uniforms = u;
+      }
+      return mi;
+    });
   }
-  if (obj.isLight) {
-    result.light = {
-      color: obj.color ? readColorHex(obj.color) : undefined, intensity: obj.intensity,
-      castShadow: obj.castShadow, distance: obj.distance, decay: obj.decay,
-      angle: obj.angle, penumbra: obj.penumbra,
-      groundColor: obj.groundColor ? readColorHex(obj.groundColor) : undefined,
-    };
-    if (obj.shadow) result.light.shadow = {
-      mapSize: obj.shadow.mapSize ? { x: obj.shadow.mapSize.x, y: obj.shadow.mapSize.y } : undefined,
-      bias: obj.shadow.bias, normalBias: obj.shadow.normalBias, radius: obj.shadow.radius,
-    };
-  }
-  if (obj.isCamera) result.camera = { fov: obj.fov, near: obj.near, far: obj.far, zoom: obj.zoom, aspect: obj.aspect };
-  if (obj.isInstancedMesh) result.instancedMesh = { count: obj.count, maxCount: obj.instanceMatrix?.count || 0, hasInstanceColors: !!obj.instanceColor };
-  if (obj.userData && Object.keys(obj.userData).length > 0) {
-    try { result.userData = JSON.parse(JSON.stringify(obj.userData)); } catch { result.userData = '(non-serializable)'; }
-  }
-  if (obj.children?.length > 0) {
-    const t: Record<string, number> = {};
-    obj.children.forEach((c: any) => { const k = c.type || '?'; t[k] = (t[k] || 0) + 1; });
-    result.childrenByType = t;
-  }
-  return result;
-}
 
-function collectMat(m: any): Record<string, any> {
-  const mi: Record<string, any> = {
-    name: m.name || '(unnamed)', type: m.type || m.constructor?.name || '?',
-    uuid: m.uuid, visible: m.visible, side: m.side, transparent: m.transparent,
-    opacity: m.opacity, depthWrite: m.depthWrite, depthTest: m.depthTest,
-    wireframe: m.wireframe, fog: m.fog, blending: m.blending,
-  };
-  if (m.color) mi.color = readColorHex(m.color);
-  if (m.emissive) mi.emissive = readColorHex(m.emissive);
-  if (m.roughness !== undefined) mi.roughness = m.roughness;
-  if (m.metalness !== undefined) mi.metalness = m.metalness;
-  if (m.envMapIntensity !== undefined) mi.envMapIntensity = m.envMapIntensity;
-  if (m.flatShading) mi.flatShading = true;
-  if (m.alphaTest > 0) mi.alphaTest = m.alphaTest;
-  const slots = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'displacementMap', 'bumpMap', 'alphaMap', 'envMap', 'lightMap'];
-  const maps: Record<string, any> = {};
-  for (const s of slots) {
-    if (m[s]) { const t = m[s]; maps[s] = { name: t.name || '(unnamed)', uuid: t.uuid, image: t.image ? { width: t.image.width, height: t.image.height } : null }; }
+  // Light
+  if (obj.isLight) {
+    r.intensity = obj.intensity;
+    if (obj.color) r.color = readColorHex(obj.color);
+    if (obj.castShadow) r.shadow = true;
   }
-  if (Object.keys(maps).length > 0) mi.textureMaps = maps;
-  if (m.uniforms) {
-    const unis: Record<string, any> = {};
-    for (const [k, u] of Object.entries(m.uniforms)) {
-      const v = (u as any).value;
-      if (v === null || v === undefined) { unis[k] = null; continue; }
-      if (typeof v === 'number' || typeof v === 'boolean') { unis[k] = v; continue; }
-      if (v.isColor) { unis[k] = { type: 'Color', value: readColorHex(v) }; continue; }
-      if (v.isVector2) { unis[k] = { type: 'Vector2', x: v.x, y: v.y }; continue; }
-      if (v.isVector3) { unis[k] = { type: 'Vector3', x: v.x, y: v.y, z: v.z }; continue; }
-      if (v.isVector4) { unis[k] = { type: 'Vector4', x: v.x, y: v.y, z: v.z, w: v.w }; continue; }
-      unis[k] = typeof v;
-    }
-    if (Object.keys(unis).length > 0) mi.uniforms = unis;
-  }
-  return mi;
+
+  // InstancedMesh
+  if (obj.isInstancedMesh) r.instances = obj.count;
+
+  // Children count
+  if (obj.children?.length) r.children = obj.children.length;
+
+  return r;
 }

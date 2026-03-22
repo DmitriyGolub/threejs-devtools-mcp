@@ -98,13 +98,13 @@ export const CSS = /* css */ `
 .__dc:hover{color:var(--fg);background:var(--bg3)}
 .__dr{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;font-family:ui-monospace,'Cascadia Code',monospace;border-bottom:1px solid rgba(255,255,255,.04)}
 .__dr:last-of-type{border-bottom:none}
-.__dk{color:var(--fg3);flex-shrink:0;min-width:70px}
-.__dv{color:var(--fg);font-weight:500;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto}
+.__dk{color:var(--fg3);flex-shrink:0;min-width:80px;padding-right:12px}
+.__dv{color:var(--fg);font-weight:500;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;padding-left:8px}
 
 /* preview */
 .__pv{width:100%!important;height:100%!important;border-radius:8px;display:block;cursor:grab;object-fit:contain}
 .__pv:active{cursor:grabbing}
-.__pv_wrap{position:relative;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;margin-bottom:8px;overflow:hidden;aspect-ratio:1;max-height:300px}
+.__pv_wrap{position:relative;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;margin:0 auto 8px;overflow:hidden;aspect-ratio:1;max-height:300px;width:100%}
 .__pv_loading{aspect-ratio:1;max-height:300px;display:flex;align-items:center;justify-content:center;color:var(--fg3);font-size:10px}
 
 /* copy button */

@@ -58,12 +58,11 @@ export function showDetails(obj: any, det: HTMLElement | null, ctx?: ThreeContex
 
   // Render interactive preview
   if (ctx && (obj.isMesh || obj.isGroup || obj.isScene)) {
-    setTimeout(() => {
-      const wrap = document.getElementById('__pv_wrap');
-      if (!wrap) return;
+    const wrap = det.querySelector('.__pv_wrap') as HTMLElement | null;
+    if (wrap) {
       const cleanup = objectPreview(ctx, wrap, obj);
       if (!cleanup) wrap.remove();
-    }, 16);
+    }
   }
 
   document.getElementById('__dc')!.onclick = () => {

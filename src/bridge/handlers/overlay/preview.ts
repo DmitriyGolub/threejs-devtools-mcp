@@ -34,7 +34,7 @@ function getCtors(ctx: ThreeContext): Record<string, any> {
   return c;
 }
 function getRenderer(ctx: ThreeContext, sz: number): any {
-  if (_pr) { try { _pr.dispose(); } catch { /* */ } }
+  if (_pr) { return _pr; }
   try {
     const cv = document.createElement('canvas');
     cv.style.width = '100%'; cv.style.height = '100%'; cv.style.display = 'block';
@@ -104,7 +104,8 @@ export function objectPreview(ctx: ThreeContext, container: HTMLElement, obj: an
     if (grid) { scene.add(grid); helpers.push(grid); }
     for (const ax of makeAxes(c, groundCenter, diag * 0.5, srcMat)) { scene.add(ax); helpers.push(ax); }
     const cam = new c.PCam(45, 1, 0.01, diag * 10);
-    r.domElement.className = '__pv'; container.innerHTML = ''; container.appendChild(r.domElement);
+    container.innerHTML = ''; container.appendChild(r.domElement);
+    r.setSize(sz, sz, false); r.setViewport(0, 0, sz, sz);
     attachOrbit(r, scene, cam, center, dist * 1.5);
     return () => {
       target.traverse((ch: any) => { ch.geometry?.dispose?.(); ch.material?.dispose?.(); });
@@ -127,7 +128,8 @@ export function materialPreview(ctx: ThreeContext, container: HTMLElement, mat: 
     if (c.AL) scene.add(new c.AL(0x606060));
     if (c.DL) { const d = new c.DL(0xffffff, 1.2); d.position.set(3, 4, 5); scene.add(d); }
     const cam = new c.PCam(45, 1, 0.1, 100), center = { x: 0, y: 0, z: 0 };
-    r.domElement.className = '__pv'; container.innerHTML = ''; container.appendChild(r.domElement);
+    container.innerHTML = ''; container.appendChild(r.domElement);
+    r.setSize(sz, sz, false); r.setViewport(0, 0, sz, sz);
     attachOrbit(r, scene, cam, center, 2.8);
     return () => { geo.dispose(); pvMat.dispose(); };
   } catch { return null; }

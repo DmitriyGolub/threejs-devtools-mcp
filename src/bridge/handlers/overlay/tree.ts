@@ -91,7 +91,12 @@ export function buildTree(ctx: ThreeContext, container: HTMLElement | null, call
         else { _expandedPaths.delete(path); }
       });
     }
-    row.addEventListener('click', (e) => { e.stopPropagation(); callbacks.onSelect(obj); });
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      container?.querySelectorAll('.__tr.sel').forEach(n => n.classList.remove('sel'));
+      row.classList.add('sel');
+      callbacks.onSelect(obj);
+    });
     parentEl.appendChild(wrap);
   }
 

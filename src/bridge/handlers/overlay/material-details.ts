@@ -61,12 +61,11 @@ export function showMaterialDetails(m: any, det: HTMLElement | null, ctx?: Three
 
   // Render interactive material preview
   if (ctx) {
-    setTimeout(() => {
-      const wrap = document.getElementById('__pv_wrap');
-      if (!wrap) return;
+    const wrap = det.querySelector('.__pv_wrap') as HTMLElement | null;
+    if (wrap) {
       const cleanup = materialPreview(ctx, wrap, m);
       if (!cleanup) wrap.remove();
-    }, 16);
+    }
   }
 
   document.getElementById('__dc')!.onclick = () => { det.innerHTML = ''; };

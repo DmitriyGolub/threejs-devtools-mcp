@@ -28,7 +28,7 @@ export function createOverlayDOM(ctx: ThreeContext): { root: HTMLElement; select
 
   root.innerHTML = `
     <div class="__hdr">
-      <div class="__htitle"><div class="__hdot"></div>THREE.JS DEVTOOLS</div>
+      <div class="__htitle"><div class="__hdot"></div>THREE.js MCP DEVTOOLS</div>
       <div class="__hbtns">
         <button class="__hb" id="__tdt_min" title="Minimize">\u2500</button>
         <button class="__hb" id="__tdt_x" title="Close">\u2715</button>
