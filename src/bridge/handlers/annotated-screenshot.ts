@@ -19,6 +19,10 @@ export const annotatedScreenshotHandler: Handler = (ctx, params) => {
   ctx.scene.traverse((obj: any) => {
     if (!obj.name || obj === ctx.scene || obj.visible === false) return;
     if (obj.isBone || obj.isHelper) return;
+    // Skip structural containers at origin (Scene, Group, Armature with no meaningful position)
+    if ((obj.isGroup || obj.isScene || obj.type === 'Object3D') &&
+        obj.position.x === 0 && obj.position.y === 0 && obj.position.z === 0) return;
+    if (obj.type === 'Bone' || obj.name === 'Armature') return;
     const pos = new V3(); obj.getWorldPosition(pos); pos.project(cam);
     if (pos.z < -1 || pos.z > 1) return;
     const sx = ((pos.x + 1) / 2) * w, sy = ((1 - pos.y) / 2) * h;
@@ -45,7 +49,7 @@ export const annotatedScreenshotHandler: Handler = (ctx, params) => {
   }
 
   // Spread clustered labels: if multiple labels within 50px, distribute in a circle
-  const spreadR = 120;
+  const spreadR = 180;
   const used = new Set<number>();
   for (let i = 0; i < labels.length; i++) {
     if (used.has(i)) continue;
