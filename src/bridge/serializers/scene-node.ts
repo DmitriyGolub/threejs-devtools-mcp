@@ -6,13 +6,26 @@ const isDefaultPosition = (p: any) => p[0] === 0 && p[1] === 0 && p[2] === 0;
 const isDefaultScale = (s: any) => s[0] === 1 && s[1] === 1 && s[2] === 1;
 const isDefaultRotation = (r: any) => r[0] === 0 && r[1] === 0 && r[2] === 0;
 
+/** Get accurate type string — obj.type is often just "Mesh" for subclasses */
+function resolveType(obj: any): string {
+  if (obj.isInstancedMesh) return 'InstancedMesh';
+  if (obj.isSkinnedMesh) return 'SkinnedMesh';
+  if (obj.isBatchedMesh) return 'BatchedMesh';
+  if (obj.isSprite) return 'Sprite';
+  if (obj.isLine2) return 'Line2';
+  if (obj.isLineSegments) return 'LineSegments';
+  if (obj.isLine) return 'Line';
+  if (obj.isPoints) return 'Points';
+  return obj.type || obj.constructor?.name || 'Object3D';
+}
+
 export function serializeSceneNode(
   obj: any, depth: number, maxDepth: number, typeFilter?: string[], maxChildren?: number,
 ): any {
   if (depth > maxDepth) return null;
   const limit = maxChildren || DEFAULT_MAX_CHILDREN;
 
-  const type = obj.constructor?.name || obj.type || 'Object3D';
+  const type = resolveType(obj);
 
   if (typeFilter && typeFilter.length > 0 && !typeFilter.includes(type)) {
     const matchingChildren: any[] = [];
@@ -92,7 +105,7 @@ export function compactSceneTree(
   indent: string = '',
 ): string {
   if (depth > maxDepth) return '';
-  const type = obj.constructor?.name || obj.type || 'Object3D';
+  const type = resolveType(obj);
   const name = obj.name || '(unnamed)';
   const childCount = obj.children?.length || 0;
 

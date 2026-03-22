@@ -159,6 +159,9 @@ function startBridge(): void {
         send({ id: request.id, error: { code: -1, message: 'Three.js scene not found in page' } });
         return;
       }
+      if (ctx.scene.children?.length === 0 && request.method !== 'run_js') {
+        console.warn(`[threejs-devtools-mcp] Scene has 0 children for "${request.method}" — scene may be stale or not yet loaded`);
+      }
 
       const handler = handlers[request.method];
       if (!handler) {

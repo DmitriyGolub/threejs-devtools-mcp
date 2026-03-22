@@ -8,6 +8,29 @@ import { collectMaterials, collectTextures } from '../traversal.js';
 import { readColorHex } from './color-utils.js';
 import { getThreeModule } from '../discovery/index.js';
 
+// ── helpers ──────────────────────────────────────────────
+
+/** Get accurate type string — obj.type is often just "Mesh" for subclasses */
+function resolveType(obj: any): string {
+  if (obj.isInstancedMesh) return 'InstancedMesh';
+  if (obj.isSkinnedMesh) return 'SkinnedMesh';
+  if (obj.isBatchedMesh) return 'BatchedMesh';
+  if (obj.isSprite) return 'Sprite';
+  if (obj.isLine2) return 'Line2';
+  if (obj.isLineSegments) return 'LineSegments';
+  if (obj.isLine) return 'Line';
+  if (obj.isPoints) return 'Points';
+  return obj.type || obj.constructor?.name || 'Object3D';
+}
+
+/** Check if object matches a type filter string */
+function matchesType(obj: any, filter: string): boolean {
+  if (obj.type === filter) return true;
+  if (obj.constructor?.name === filter) return true;
+  if (resolveType(obj) === filter) return true;
+  return false;
+}
+
 // ── find_objects ─────────────────────────────────────────
 
 export const findObjectsHandler: Handler = (ctx, params) => {
@@ -32,7 +55,7 @@ export const findObjectsHandler: Handler = (ctx, params) => {
     if (results.length >= limit) return;
 
     // Type filter
-    if (typeFilter && obj.type !== typeFilter && obj.constructor?.name !== typeFilter) return;
+    if (typeFilter && !matchesType(obj, typeFilter)) return;
 
     // Visibility filter
     if (visibleFilter !== undefined && obj.visible !== visibleFilter) return;
@@ -73,7 +96,7 @@ export const findObjectsHandler: Handler = (ctx, params) => {
 
     const entry: any = {
       name: obj.name || '',
-      type: obj.type,
+      type: resolveType(obj),
       uuid: obj.uuid,
       visible: obj.visible,
       position: serializeVector3(obj.position),

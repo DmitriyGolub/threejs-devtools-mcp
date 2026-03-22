@@ -17,9 +17,20 @@ export function resolveObject(ctx: any, params: Record<string, unknown>): any {
 }
 
 function resolveMaterial(ctx: any, params: Record<string, unknown>): any {
-  const mat = findMaterial(ctx.scene, params.name as string, params.uuid as string);
-  if (!mat) throw new Error(`Material not found: ${params.name || params.uuid}`);
-  return mat;
+  // Try direct material lookup first
+  let mat = findMaterial(ctx.scene, params.name as string, params.uuid as string);
+  if (mat) return mat;
+
+  // Fallback: maybe "name" is actually an object name — get its material
+  if (params.name) {
+    const obj = findObjectByName(ctx.scene, params.name as string);
+    if (obj?.material) {
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      return mats[0];
+    }
+  }
+
+  throw new Error(`Material not found: ${params.name || params.uuid}`);
 }
 
 // ── set_material_property ────────────────────────────────

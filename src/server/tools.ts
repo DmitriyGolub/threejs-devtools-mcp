@@ -61,7 +61,7 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
 
   bridgeTool(server, bridge, 'set_material_property',
     'Set a material property (color, roughness, wireframe, etc.). IMPORTANT: This is a runtime-only preview (lost on reload). Before calling, ASK the user whether they want a runtime preview or a persistent code change.',
-    { name: z.string().optional().describe('Material name'),
+    { name: z.string().optional().describe('Material name or object/mesh name that owns the material'),
       uuid: z.string().optional().describe('Material UUID'),
       property: z.string().describe('Property name: color, emissive, roughness, metalness, opacity, transparent, wireframe, visible, side, depthWrite, depthTest, alphaTest, flatShading, fog'),
       value: z.any().describe('New value (hex string for colors, number for scalars, boolean for flags)') });
@@ -100,7 +100,18 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
       enabled: z.boolean().optional().describe('Enable/disable highlight (default: true)') });
 
   bridgeTool(server, bridge, 'run_js',
-    'Execute arbitrary JavaScript with access to scene, renderer, camera. Returns the result. Runtime only (lost on reload). If the code mutates scene state, ASK the user first: runtime preview or persistent code change?',
+    `Execute arbitrary JavaScript with access to scene, renderer, camera. Returns the result. Runtime only (lost on reload). If the code mutates scene state, ASK the user first: runtime preview or persistent code change?
+
+SHADER PATCHING RECIPE — when modifying materials via onBeforeCompile:
+1. Reset patch flags: mat._curvedWorldPatched = false; mat._windPatched = false;
+2. Delete old shader refs: delete mat.userData.shakeShader; stop old animations via mesh.userData._stopShake?.();
+3. ONE onBeforeCompile pass (never chain) — include curved world + your effect together
+4. Replace '#include <project_vertex>' with full transform: USE_BATCHING/USE_INSTANCING guards → effect in world space → curved world (worldPos.y -= dist²*0.005) → viewMatrix*worldPos → gl_Position
+5. Declare uniforms before main(): shader.vertexShader.replace('void main() {', 'uniform float uTime;\\nvoid main() {')
+6. Set mat.customProgramCacheKey = () => 'effect-' + Date.now(); — forces recompilation
+7. mat.needsUpdate = true;
+8. Animate uniforms via requestAnimationFrame loop
+9. Use transformed.y for height-based effects (local vertex Y), worldPos for spatial phase`,
     { code: z.string().describe('JavaScript code. Available vars: scene, renderer, camera, gl. Use return for results.') });
 
   bridgeTool(server, bridge, 'performance_snapshot',
