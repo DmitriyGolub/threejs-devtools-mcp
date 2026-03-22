@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "threejs-devtools-mcp",
   "display_name": "Three.js DevTools",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Inspect and edit Three.js scenes in real time — 52 tools for objects, materials, shaders, textures, animations, performance, memory diagnostics, and code generation.",
   "author": {
     "name": "DmitriyGolub",
@@ -82,6 +82,17 @@
     { "name": "env_map_details", "description": "Inspect environment maps" },
     { "name": "layer_details", "description": "Show layer assignments" },
     { "name": "set_layers", "description": "Set layers on objects" },
-    { "name": "postprocessing_list", "description": "List post-processing passes" }
+    { "name": "postprocessing_list", "description": "List post-processing passes" },
+    { "name": "annotated_screenshot", "description": "Screenshot with smart object labels" },
+    { "name": "toggle_overlay", "description": "In-browser devtools overlay (FPS, scene graph, materials)" },
+    { "name": "overlay_selected", "description": "Get details of selected object in overlay" },
+    { "name": "console_capture", "description": "Capture browser console output" },
+    { "name": "perf_monitor", "description": "Record FPS and frame times with percentiles" },
+    { "name": "click_inspect", "description": "Click-to-inspect mode with raycasting" },
+    { "name": "instanced_mesh_details", "description": "Inspect InstancedMesh data" },
+    { "name": "set_instanced_mesh", "description": "Modify InstancedMesh properties" },
+    { "name": "scene_background", "description": "Inspect scene background and environment" },
+    { "name": "bridge_status", "description": "Check bridge connection status" },
+    { "name": "set_dev_port", "description": "Change the proxied dev server port" }
   ]
 }
