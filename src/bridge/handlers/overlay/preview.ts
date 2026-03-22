@@ -68,6 +68,14 @@ export function objectPreview(ctx: ThreeContext, container: HTMLElement, obj: an
     if (!r || !c.Scene || !c.PCam || !c.V3) return null;
     const scene = new c.Scene();
     let target: any; try { target = obj.clone(true); } catch { return null; } scene.add(target);
+    // Clone materials so preview isn't affected by wireframe highlight
+    target.traverse((ch: any) => {
+      if (ch.material) {
+        ch.material = Array.isArray(ch.material) ? ch.material.map((m: any) => m.clone()) : ch.material.clone();
+        const ms = Array.isArray(ch.material) ? ch.material : [ch.material];
+        for (const m of ms) { m.wireframe = false; if (m.emissive) m.emissive.setRGB(0, 0, 0); }
+      }
+    });
     const mn = new c.V3(Infinity, Infinity, Infinity), mx = new c.V3(-Infinity, -Infinity, -Infinity);
     target.updateMatrixWorld?.(true);
     target.traverse((ch: any) => {
@@ -84,7 +92,7 @@ export function objectPreview(ctx: ThreeContext, container: HTMLElement, obj: an
     const cam = new c.PCam(45, 1, 0.01, diag * 10);
     r.domElement.className = '__pv'; container.innerHTML = ''; container.appendChild(r.domElement);
     attachOrbit(r, scene, cam, center, dist * 1.5);
-    return () => { target.traverse((ch: any) => { ch.geometry?.dispose?.(); }); };
+    return () => { target.traverse((ch: any) => { ch.geometry?.dispose?.(); ch.material?.dispose?.(); }); };
   } catch { return null; }
 }
 export function materialPreview(ctx: ThreeContext, container: HTMLElement, mat: any, sz = 200): PreviewCleanup | null {
@@ -92,12 +100,14 @@ export function materialPreview(ctx: ThreeContext, container: HTMLElement, mat: 
     const c = getCtors(ctx), r = getRenderer(ctx, sz);
     if (!r || !c.Scene || !c.Mesh || !c.PCam) return null;
     const scene = new c.Scene(), geo = makeSphere(c); if (!geo) return null;
-    scene.add(new c.Mesh(geo, mat));
+    const pvMat = mat.clone(); pvMat.wireframe = false;
+    if (pvMat.emissive) pvMat.emissive.setRGB(0, 0, 0);
+    scene.add(new c.Mesh(geo, pvMat));
     if (c.AL) scene.add(new c.AL(0x606060));
     if (c.DL) { const d = new c.DL(0xffffff, 1.2); d.position.set(3, 4, 5); scene.add(d); }
     const cam = new c.PCam(45, 1, 0.1, 100), center = { x: 0, y: 0, z: 0 };
     r.domElement.className = '__pv'; container.innerHTML = ''; container.appendChild(r.domElement);
     attachOrbit(r, scene, cam, center, 2.8);
-    return () => { geo.dispose(); };
+    return () => { geo.dispose(); pvMat.dispose(); };
   } catch { return null; }
 }
