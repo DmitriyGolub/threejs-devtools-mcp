@@ -17,6 +17,7 @@ const RUNTIME_PREVIEW_TOOLS = new Set([
 const DEBUG_ONLY_TOOLS = new Set([
   'highlight_object', 'run_js', 'toggle_wireframe',
   'bounding_boxes', 'add_helper', 'remove_helper',
+  'toggle_overlay',
 ]);
 
 function getScope(toolName: string): string | null {

@@ -4,7 +4,7 @@
  */
 
 import type { BridgeRequest, BridgeResponse, ThreeContext, Handler } from './types.js';
-import { discoverThreeJS, setupCapture } from './discovery.js';
+import { discoverThreeJS, setupCapture } from './discovery/index.js';
 import { sceneTreeHandler, objectDetailsHandler } from './handlers/scene.js';
 import { materialListHandler, materialDetailsHandler } from './handlers/material.js';
 import { shaderSourceHandler, shaderListHandler } from './handlers/shader.js';
@@ -54,6 +54,7 @@ import { texturePreviewHandler } from './handlers/texture-preview.js';
 import { perfMonitorHandler } from './handlers/perf-monitor.js';
 import { clickInspectHandler } from './handlers/click-inspect.js';
 import { sceneExportHandler } from './handlers/scene-export.js';
+import { toggleOverlayHandler, overlaySelectedHandler, autoShowOverlay } from './handlers/overlay/index.js';
 
 const handlers: Record<string, Handler> = {
   scene_tree: sceneTreeHandler,
@@ -109,6 +110,8 @@ const handlers: Record<string, Handler> = {
   perf_monitor: perfMonitorHandler,
   click_inspect: clickInspectHandler,
   scene_export: sceneExportHandler,
+  toggle_overlay: toggleOverlayHandler,
+  overlay_selected: overlaySelectedHandler,
 };
 
 function startBridge(): void {
@@ -208,6 +211,11 @@ function startBridge(): void {
 // Auto-start: setupCapture immediately (before Three.js loads),
 // startBridge after DOM is ready (no artificial setTimeout)
 if (typeof window !== 'undefined') {
+  // Set callback BEFORE setupCapture so it's ready when scene is discovered
+  (window as any).__tdt_onSceneReady = (ctx: ThreeContext) => {
+    setTimeout(() => { autoShowOverlay(ctx); }, 300);
+  };
+
   setupCapture();
   setupConsoleCapture();
   if (document.readyState === 'loading') {

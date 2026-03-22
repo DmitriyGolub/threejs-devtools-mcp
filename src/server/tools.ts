@@ -516,6 +516,16 @@ export function registerTools(server: McpServer, bridge: BridgeServer): void {
     }
   });
 
+  // ── Overlay ──────────────────────────────────────────────
+
+  bridgeTool(server, bridge, 'toggle_overlay',
+    'Toggle a lightweight scene inspector overlay in the browser. Shows real-time FPS, draw calls, triangles, object count, scene tree, materials, and lights. Click objects in the tree to highlight them with wireframe. Debug only — page reload will reset.',
+    { enabled: z.boolean().optional().describe('true=show, false=hide, omit=toggle') });
+
+  bridgeTool(server, bridge, 'overlay_selected',
+    'Get comprehensive details about the object currently selected in the overlay. Returns full material properties, geometry info, transforms, textures, uniforms, shadow settings — everything needed to understand and modify the object in code. The user must first select an object in the overlay by clicking on it.',
+    {});
+
   // Connection & config tools
   server.registerTool('bridge_status', {
     description: 'Check bridge connection and proxy status',

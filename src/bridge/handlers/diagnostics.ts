@@ -6,7 +6,7 @@ import type { Handler } from '../types.js';
 import { serializeVector3 } from '../serializers/vector.js';
 import { collectMaterials, collectTextures } from '../traversal.js';
 import { readColorHex } from './color-utils.js';
-import { getThreeModule } from '../discovery.js';
+import { getThreeModule } from '../discovery/index.js';
 
 // ── find_objects ─────────────────────────────────────────
 

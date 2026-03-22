@@ -23,7 +23,6 @@ export class BridgeServer {
     timer: ReturnType<typeof setTimeout>;
   }>();
   private nextId = 0;
-  private bridgeScript: string | null = null;
   private _devPort: number;
   private _onReady?: () => void;
 
@@ -38,7 +37,6 @@ export class BridgeServer {
 
   constructor(private port: number = 9222, devPort: number = 3000) {
     this._devPort = devPort;
-    this.bridgeScript = this.loadBridgeScript();
 
     this.httpServer = http.createServer((req, res) => {
       const url = req.url || '/';
@@ -48,7 +46,7 @@ export class BridgeServer {
         res.end(JSON.stringify({ connected: this.client !== null, port: this.port, devPort: this._devPort }));
         return;
       }
-      proxyRequest(req, res, this._devPort, this.port, this.bridgeScript);
+      proxyRequest(req, res, this._devPort, this.port, this.loadBridgeScript());
     });
 
     this.wss = new WebSocketServer({ noServer: true });
@@ -157,9 +155,10 @@ export class BridgeServer {
   }
 
   private serveBridgeScript(res: http.ServerResponse): void {
-    if (this.bridgeScript) {
+    const script = this.loadBridgeScript();
+    if (script) {
       res.writeHead(200, { 'Content-Type': 'application/javascript', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
-      res.end(this.bridgeScript);
+      res.end(script);
     } else {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('inject.js not found. Run: npm run build');

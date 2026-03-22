@@ -44,6 +44,7 @@ import { testTexturePreview } from './test-texture-preview.mjs';
 import { testPerfMonitor } from './test-perf-monitor.mjs';
 import { testClickInspect } from './test-click-inspect.mjs';
 import { testSceneExport } from './test-scene-export.mjs';
+import { testToggleOverlay, testOverlaySelected } from './test-overlay.mjs';
 
 const serverDir = path.resolve(import.meta.dirname, '..');
 const client = createTestClient(serverDir);
@@ -218,6 +219,13 @@ try {
 
   console.log('\n── Scene Export ──');
   await testSceneExport(client);
+
+  // ── Overlay ──
+  console.log('\n── Toggle Overlay ──');
+  await testToggleOverlay(client);
+
+  console.log('\n── Overlay Selected ──');
+  await testOverlaySelected(client);
 
   // ── Config (last, may change port) ──
   console.log('\n── Config ──');

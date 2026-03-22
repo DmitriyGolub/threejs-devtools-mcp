@@ -5,7 +5,7 @@ import type { Handler } from '../types.js';
 import { serializeVector3 } from '../serializers/vector.js';
 import { findObjectByName, findObjectByUuid } from '../traversal.js';
 import { resolveObject } from './mutate.js';
-import { getThreeModule } from '../discovery.js';
+import { getThreeModule } from '../discovery/index.js';
 
 // ── animation_details ────────────────────────────────────
 

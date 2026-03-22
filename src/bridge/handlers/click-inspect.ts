@@ -1,5 +1,5 @@
 import type { Handler } from '../types.js';
-import { getThreeModule } from '../discovery.js';
+import { getThreeModule } from '../discovery/index.js';
 
 export const clickInspectHandler: Handler = (ctx, params) => {
   const timeout = Math.min(Math.max((params.timeout as number) || 15, 1), 60);
