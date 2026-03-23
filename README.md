@@ -5,7 +5,7 @@
 [![build](https://github.com/DmitriyGolub/threejs-devtools-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/DmitriyGolub/threejs-devtools-mcp/actions)
 [![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://mcp-marketplace.io/server/io-github-dmitriygolub-threejs-devtools)
 
-MCP server for inspecting and modifying Three.js scenes in real time — **52 tools** for objects, materials, shaders, textures, animations, performance monitoring, memory diagnostics, and code generation.
+MCP server for inspecting and modifying Three.js scenes in real time — **59 tools** for objects, materials, shaders, textures, animations, performance monitoring, memory diagnostics, and code generation.
 
 **Zero changes to your project.** Works with vanilla Three.js, React Three Fiber, and any framework.
 
@@ -157,7 +157,7 @@ mesh.name = "player";
 
 ## Documentation
 
-- [Tools reference](docs/tools.md) — all 52 tools with parameters
+- [Tools reference](docs/tools.md) — all 59 tools with parameters
 - [Advanced setup](docs/advanced.md) — animations, scene export, configuration, transports
 - [Cursor setup](docs/cursor-setup.md) — step-by-step guide for Cursor
 - [Token-efficient workflow](docs/workflow.md) — best practices for saving context

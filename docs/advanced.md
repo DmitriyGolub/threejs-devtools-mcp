@@ -43,7 +43,7 @@ AI Agent <-stdio/http-> MCP Server <-proxy :9222-> Dev Server (:3000)
                        Three.js scene
 ```
 
-The proxy injects a bridge script into `<head>` before Three.js loads. The bridge captures Scene and Renderer via the official `__THREE_DEVTOOLS__` API and exposes 52 tools to the AI agent. Screenshots and texture previews are saved to a `screenshots/` folder in your project.
+The proxy injects a bridge script into `<head>` before Three.js loads. The bridge captures Scene and Renderer via the official `__THREE_DEVTOOLS__` API and exposes 59 tools to the AI agent. Screenshots and texture previews are saved to a `screenshots/` folder in your project.
 
 ## Configuration
 
