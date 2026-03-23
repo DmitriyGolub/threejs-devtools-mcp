@@ -1,6 +1,6 @@
 # Tools Reference — threejs-devtools-mcp
 
-52 tools for inspecting, debugging, and modifying Three.js scenes.
+59 tools for inspecting, debugging, and modifying Three.js scenes.
 
 ## Scene inspection
 
