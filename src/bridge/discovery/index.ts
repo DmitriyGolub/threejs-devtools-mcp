@@ -31,6 +31,19 @@ export function discoverThreeJS(): ThreeContext | null {
   return ctx;
 }
 
+/** Find all <canvas> elements, including those inside Shadow DOM trees. */
+function _findAllCanvases(): HTMLCanvasElement[] {
+  const result: HTMLCanvasElement[] = [];
+  function walk(root: Document | ShadowRoot) {
+    root.querySelectorAll('canvas').forEach(c => result.push(c as HTMLCanvasElement));
+    root.querySelectorAll('*').forEach(el => {
+      if (el.shadowRoot) walk(el.shadowRoot);
+    });
+  }
+  walk(document);
+  return result;
+}
+
 function _discoverFresh(): ThreeContext | null {
   const win = window as any;
 
@@ -47,8 +60,8 @@ function _discoverFresh(): ThreeContext | null {
     });
   }
 
-  // Strategy 2a: R3F store on canvas.__r3f
-  const canvases = document.querySelectorAll('canvas');
+  // Strategy 2a: R3F store on canvas.__r3f (including Shadow DOM)
+  const canvases = _findAllCanvases();
   for (const canvas of canvases) {
     const r3f = (canvas as any).__r3f;
     if (r3f) {

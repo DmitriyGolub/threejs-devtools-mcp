@@ -9,6 +9,19 @@ import {
 import { scanWindowForThreeJS, scanCanvasForRenderer, tryExtractSceneFromRenderer } from './scan.js';
 import { tryCaptureThreeModule, tryExtractFromR3fRoot } from './three-module.js';
 
+/** Find all <canvas> elements, including those inside Shadow DOM trees. */
+function findAllCanvases(): HTMLCanvasElement[] {
+  const result: HTMLCanvasElement[] = [];
+  function walk(root: Document | ShadowRoot) {
+    root.querySelectorAll('canvas').forEach(c => result.push(c as HTMLCanvasElement));
+    root.querySelectorAll('*').forEach(el => {
+      if (el.shadowRoot) walk(el.shadowRoot);
+    });
+  }
+  walk(document);
+  return result;
+}
+
 export function setupCapture(): void {
   if ((window as any).__THREEJS_DEVTOOLS_BRIDGE_CAPTURE__) return;
   (window as any).__THREEJS_DEVTOOLS_BRIDGE_CAPTURE__ = true;
@@ -32,14 +45,14 @@ export function setupCapture(): void {
     if (getCaptured().scene && getCaptured().renderer) notifySceneReady();
   });
 
-  // Strategy 2: Polling — R3F, window scan, canvas scan
+  // Strategy 2: Polling — R3F, window scan, canvas scan (including Shadow DOM)
   let attempts = 0;
   const poll = setInterval(() => {
     attempts++;
     const { scene, renderer } = getCaptured();
     if (attempts > 120 || (renderer && scene)) { clearInterval(poll); return; }
 
-    const canvases = document.querySelectorAll('canvas');
+    const canvases = findAllCanvases();
     for (const canvas of canvases) {
       const r3f = (canvas as any).__r3f;
       if (r3f) {
@@ -70,11 +83,18 @@ export function setupCapture(): void {
   }, 500);
 }
 
-/** Intercept renderer.render() to capture camera from render(scene, camera) */
+/** Intercept renderer.render() to capture scene and camera from render(scene, camera) */
 function interceptRender(r: any): void {
   if (r.__tdt_rp) return;
   const orig = r.render.bind(r);
   r.render = (s: any, c: any) => {
+    // Capture scene — prefer the one with the most children (skip background planes)
+    if (s?.isScene) {
+      const current = getCaptured().scene;
+      if (!current || (s.children?.length > (current.children?.length || 0))) {
+        setCapturedScene(s);
+      }
+    }
     if (c?.isCamera && !getCaptured().camera) {
       setCapturedCamera(c);
       // Store constructor globally for preview (ES module apps lack window.THREE)

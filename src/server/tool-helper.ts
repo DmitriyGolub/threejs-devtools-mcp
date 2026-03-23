@@ -20,8 +20,11 @@ const DEBUG_ONLY_TOOLS = new Set([
   'toggle_overlay',
 ]);
 
-function getScope(toolName: string): string | null {
+function getScope(toolName: string, isRemote: boolean): string | null {
   if (RUNTIME_PREVIEW_TOOLS.has(toolName)) {
+    if (isRemote) {
+      return 'REMOTE MODE: Visual/runtime changes only — no source code access. Changes are lost on page reload.';
+    }
     return 'Runtime preview — lost on page reload. You MUST ask the user first: runtime preview only, or also update source code?';
   }
   if (DEBUG_ONLY_TOOLS.has(toolName)) {
@@ -53,11 +56,12 @@ export function bridgeTool(
   timeoutMs?: number,
 ): void {
   const hasParams = Object.keys(schema).length > 0;
-  const scope = getScope(name);
+  // Use non-remote scope for static description (tool listing)
+  const staticScope = getScope(name, false);
 
   // Prepend scope tag to description so AI clients see it
-  const taggedDescription = scope
-    ? `${description}\n\n${scope}`
+  const taggedDescription = staticScope
+    ? `${description}\n\n${staticScope}`
     : description;
 
   server.registerTool(name, {
@@ -69,6 +73,9 @@ export function bridgeTool(
       const result = await bridge.request(name, (params ?? {}) as Record<string, unknown>, timeoutMs);
 
       const text = JSON.stringify(result, null, 2);
+
+      // Compute scope at call time so remote status is current
+      const scope = getScope(name, bridge.isRemote);
 
       // Append scope note to response for mutation/debug tools
       if (scope) {
