@@ -98,6 +98,26 @@ Add to `.vscode/mcp.json`:
 
 </details>
 
+<details>
+<summary><strong>OpenCode</strong></summary>
+
+Add to `opencode.json` in your project:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "threejs-devtools-mcp": {
+      "type": "local",
+      "command": ["npx", "-y", "threejs-devtools-mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+</details>
+
 ### 2. Start your dev server and open the browser
 
 Start your Three.js dev server as usual (`npm run dev`). The MCP server auto-detects the port from `package.json` and opens a browser at `localhost:9222` with the devtools bridge injected.
