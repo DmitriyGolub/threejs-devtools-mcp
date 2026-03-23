@@ -27,13 +27,15 @@ const bridgePort = Number(process.env.BRIDGE_PORT) || 9222;
 const httpPort = Number(process.env.HTTP_PORT) || bridgePort + 1;
 const port = await findFreePort(bridgePort);
 
-const devPort = process.env.DEV_PORT
-  ? Number(process.env.DEV_PORT)
-  : await detectDevPort();
+const devTarget: number | string = process.env.DEV_URL
+  ? process.env.DEV_URL
+  : process.env.DEV_PORT
+    ? Number(process.env.DEV_PORT)
+    : await detectDevPort();
 
 let browserResult: LaunchResult | null = null;
 
-const bridge = new BridgeServer(port, devPort);
+const bridge = new BridgeServer(port, devTarget);
 bridge.onReady(async () => {
   browserResult = await launchBrowser(`http://localhost:${port}`, {
     headless: process.env.HEADLESS === 'true',
@@ -143,7 +145,8 @@ const httpServer = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       bridge: bridge.connected,
       bridgePort: port,
-      devPort,
+      target: bridge.targetUrl,
+      remote: bridge.isRemote,
       httpPort,
       sessions: transports.size,
     }));

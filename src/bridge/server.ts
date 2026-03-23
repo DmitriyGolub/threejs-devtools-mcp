@@ -8,9 +8,40 @@ import { proxyRequest, proxyUpgrade } from './proxy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function isDevWsPath(url: string): boolean {
+function isDevWsPath(url: string, protocols?: string): boolean {
+  // Vite 7 HMR uses ws://host/?token=xxx with subprotocol "vite-hmr"
+  if (protocols?.includes('vite-hmr')) return true;
   return url.startsWith('/_next/') || url.startsWith('/__webpack')
-    || url.includes('hot-update') || url.includes('hmr');
+    || url.includes('hot-update') || url.includes('hmr')
+    || url.includes('vite') || url.startsWith('/__vite');
+}
+
+export interface ProxyTarget {
+  hostname: string;
+  port: number;
+  protocol: 'http' | 'https';
+}
+
+function isRemoteTarget(target: ProxyTarget): boolean {
+  const h = target.hostname;
+  return h !== 'localhost' && h !== '127.0.0.1' && h !== '::1' && !h.startsWith('192.168.') && !h.startsWith('10.');
+}
+
+function parseTargetUrl(url: string): ProxyTarget {
+  // Add protocol if missing
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+  const parsed = new URL(url);
+  const protocol = parsed.protocol === 'https:' ? 'https' : 'http' as const;
+  const port = parsed.port ? Number(parsed.port) : (protocol === 'https' ? 443 : 80);
+  return { hostname: parsed.hostname, port, protocol };
+}
+
+function targetToString(t: ProxyTarget): string {
+  const defaultPort = t.protocol === 'https' ? 443 : 80;
+  const portSuffix = t.port === defaultPort ? '' : `:${t.port}`;
+  return `${t.protocol}://${t.hostname}${portSuffix}`;
 }
 
 export class BridgeServer {
@@ -23,30 +54,45 @@ export class BridgeServer {
     timer: ReturnType<typeof setTimeout>;
   }>();
   private nextId = 0;
-  private _devPort: number;
+  private _target: ProxyTarget;
   private _onReady?: () => void;
+  private _replacedCount = 0;
 
-  get devPort(): number { return this._devPort; }
+  get target(): ProxyTarget { return this._target; }
+  get devPort(): number { return this._target.port; }
   get proxyPort(): number { return this.port; }
   get connected(): boolean { return this.client !== null && this.client.readyState === WebSocket.OPEN; }
+  get isRemote(): boolean { return isRemoteTarget(this._target); }
+  get targetUrl(): string { return targetToString(this._target); }
+  get replacedCount(): number { return this._replacedCount; }
 
   setDevPort(newPort: number): void {
-    this._devPort = newPort;
+    this._target = { hostname: 'localhost', port: newPort, protocol: 'http' };
     console.error(`[threejs-devtools-mcp] Dev port changed to ${newPort}`);
   }
 
-  constructor(private port: number = 9222, devPort: number = 3000) {
-    this._devPort = devPort;
+  setDevUrl(url: string): void {
+    this._target = parseTargetUrl(url);
+    const remote = this.isRemote;
+    console.error(`[threejs-devtools-mcp] Target changed to ${this.targetUrl}${remote ? ' (remote — visual changes only)' : ''}`);
+  }
+
+  constructor(private port: number = 9222, devPortOrUrl: number | string = 3000) {
+    if (typeof devPortOrUrl === 'string') {
+      this._target = parseTargetUrl(devPortOrUrl);
+    } else {
+      this._target = { hostname: 'localhost', port: devPortOrUrl, protocol: 'http' };
+    }
 
     this.httpServer = http.createServer((req, res) => {
       const url = req.url || '/';
       if (url === '/bridge.js' || url === '/inject.js') { this.serveBridgeScript(res); return; }
       if (url === '/__devtools_status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ connected: this.client !== null, port: this.port, devPort: this._devPort }));
+        res.end(JSON.stringify({ connected: this.client !== null, port: this.port, target: this.targetUrl, remote: this.isRemote }));
         return;
       }
-      proxyRequest(req, res, this._devPort, this.port, this.loadBridgeScript());
+      proxyRequest(req, res, this._target, this.port, this.loadBridgeScript());
     });
 
     this.wss = new WebSocketServer({ noServer: true });
@@ -55,8 +101,9 @@ export class BridgeServer {
     });
 
     this.httpServer.on('upgrade', (req, socket, head) => {
-      if (isDevWsPath(req.url || '')) {
-        proxyUpgrade(req, socket, head, this._devPort);
+      const wsProtocol = req.headers['sec-websocket-protocol'] || '';
+      if (isDevWsPath(req.url || '', wsProtocol)) {
+        proxyUpgrade(req, socket, head, this._target);
       } else {
         this.wss.handleUpgrade(req, socket as any, head, (ws) => {
           this.wss.emit('connection', ws, req);
@@ -66,7 +113,7 @@ export class BridgeServer {
 
     this.httpServer.listen(this.port, () => {
       const url = `http://localhost:${this.port}`;
-      console.error(`[threejs-devtools-mcp] Proxy: ${url} → http://localhost:${this._devPort}`);
+      console.error(`[threejs-devtools-mcp] Proxy: ${url} → ${this.targetUrl}${this.isRemote ? ' (remote)' : ''}`);
       this._onReady?.();
     });
   }
@@ -79,7 +126,7 @@ export class BridgeServer {
   async request(method: string, params: Record<string, unknown> = {}, timeoutMs = 10000): Promise<unknown> {
     if (!this.connected) {
       throw new Error(
-        `No Three.js app connected.\nOpen http://localhost:${this.port} in your browser.`
+        `No Three.js app connected.\nOpen http://localhost:${this.port} in your browser.\nIf the page is already open, try a hard refresh (Ctrl+Shift+R) to reload the bridge script. Multiple open tabs can also cause issues — keep only one tab on the proxy URL.`
       );
     }
     const id = String(++this.nextId);
@@ -118,10 +165,12 @@ export class BridgeServer {
     // Do NOT call .close() — it triggers browser reconnect → infinite loop.
     const prev = this.client;
     if (prev && prev !== ws && prev.readyState === WebSocket.OPEN) {
+      this._replacedCount++;
       prev.removeAllListeners();
       // Send a "replaced" message so the old tab knows to stop reconnecting
       try { prev.send(JSON.stringify({ id: '__replaced', error: { code: -99, message: 'Replaced by new connection' } })); } catch { /* ignore */ }
       prev.close(4000, 'Replaced by new tab');
+      console.error('[threejs-devtools-mcp] Bridge replaced (old tab disconnected). If you have multiple tabs open, close the extra ones.');
     }
     this.client = ws;
     console.error('[threejs-devtools-mcp] Bridge connected');

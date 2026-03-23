@@ -50,14 +50,19 @@ export function scanWindowForThreeJS(): boolean {
   return found;
 }
 
+/** Find all canvases including Shadow DOM */
+function collectCanvases(root: Document | ShadowRoot): void {
+  root.querySelectorAll('canvas').forEach(c => _capturedCanvases.add(c));
+  root.querySelectorAll('*').forEach(el => {
+    if ((el as Element).shadowRoot) collectCanvases((el as Element).shadowRoot!);
+  });
+}
+
 /** Find renderer by matching domElement to captured WebGL canvases. */
 export function scanCanvasForRenderer(): boolean {
   if (getCaptured().renderer) return true;
 
-  const canvases = document.querySelectorAll('canvas');
-  for (const canvas of canvases) {
-    _capturedCanvases.add(canvas);
-  }
+  collectCanvases(document);
   if (_capturedCanvases.size === 0) return false;
 
   const win = window as any;

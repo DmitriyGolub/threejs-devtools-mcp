@@ -575,27 +575,58 @@ SHADER PATCHING RECIPE — when modifying materials via onBeforeCompile:
   }, async () => {
     const lines = [
       `Bridge: ${bridge.connected ? 'connected' : 'NOT connected'}`,
-      `Proxy: http://localhost:${bridge.proxyPort} → http://localhost:${bridge.devPort}`,
-      '', bridge.connected
-        ? 'Three.js app is accessible.'
-        : `Not connected. Open http://localhost:${bridge.proxyPort} in your browser.`,
+      `Proxy: http://localhost:${bridge.proxyPort} → ${bridge.targetUrl}`,
     ];
-    if (!bridge.connected) lines.push('If the dev server runs on a different port, use set_dev_port.');
+    if (bridge.isRemote) {
+      lines.push('', 'REMOTE MODE: Connected to a remote server. All inspection tools work normally.');
+      lines.push('Runtime changes (set_* tools) are visual only — no source code access.');
+    }
+    lines.push('', bridge.connected
+      ? 'Three.js app is accessible.'
+      : `Not connected. Open http://localhost:${bridge.proxyPort} in your browser.`);
+    if (!bridge.connected) lines.push('If the target is wrong, use set_dev_port (local) or set_dev_url (remote).');
+    if (bridge.replacedCount > 0) {
+      lines.push('', `WARNING: ${bridge.replacedCount} tab replacement(s) detected. You may have multiple browser tabs open on the proxy URL. Only the latest tab is active — close extra tabs to avoid connection issues.`);
+    }
     return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
   });
 
   server.registerTool('set_dev_port', {
-    description: 'Change the dev server port the proxy forwards to',
+    description: 'Change the local dev server port the proxy forwards to',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       port: z.number().describe('The dev server port (e.g. 3000, 5173, 8080)'),
     },
   }, async (params) => {
-    const oldPort = bridge.devPort;
+    const oldTarget = bridge.targetUrl;
     bridge.setDevPort(params.port as number);
     return {
       content: [{ type: 'text' as const,
-        text: `Dev port changed: ${oldPort} → ${params.port}\nProxy: http://localhost:${bridge.proxyPort} → http://localhost:${params.port}\nRefresh the browser.` }],
+        text: `Target changed: ${oldTarget} → ${bridge.targetUrl}\nProxy: http://localhost:${bridge.proxyPort} → ${bridge.targetUrl}\nRefresh the browser.` }],
     };
+  });
+
+  server.registerTool('set_dev_url', {
+    description: 'Connect to a remote Three.js app by URL for inspection and visual debugging. Source code changes are NOT possible in remote mode — only runtime/visual modifications.',
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    inputSchema: {
+      url: z.string().describe('Full URL of the remote Three.js app (e.g. https://my-app.vercel.app, http://staging.example.com:3000)'),
+    },
+  }, async (params) => {
+    const oldTarget = bridge.targetUrl;
+    bridge.setDevUrl(params.url as string);
+    const lines = [
+      `Target changed: ${oldTarget} → ${bridge.targetUrl}`,
+      `Proxy: http://localhost:${bridge.proxyPort} → ${bridge.targetUrl}`,
+      '',
+      'Refresh the browser to connect.',
+    ];
+    if (bridge.isRemote) {
+      lines.push('', 'REMOTE MODE active:');
+      lines.push('  - All inspection tools work (scene_tree, material_details, screenshots, etc.)');
+      lines.push('  - Runtime changes (set_* tools) apply visually but are lost on reload');
+      lines.push('  - Source code changes are NOT possible — no local project to edit');
+    }
+    return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
   });
 }

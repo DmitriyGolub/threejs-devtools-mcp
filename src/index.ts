@@ -8,14 +8,16 @@ import { launchBrowser, closeBrowser, type LaunchResult } from './browser.js';
 const preferredPort = Number(process.env.BRIDGE_PORT) || 9222;
 const port = await findFreePort(preferredPort);
 
-// Auto-detect dev server port if not specified
-const devPort = process.env.DEV_PORT
-  ? Number(process.env.DEV_PORT)
-  : await detectDevPort();
+// DEV_URL takes priority over DEV_PORT — allows remote debugging
+const devTarget: number | string = process.env.DEV_URL
+  ? process.env.DEV_URL
+  : process.env.DEV_PORT
+    ? Number(process.env.DEV_PORT)
+    : await detectDevPort();
 
 let browserResult: LaunchResult | null = null;
 
-const bridge = new BridgeServer(port, devPort);
+const bridge = new BridgeServer(port, devTarget);
 bridge.onReady(async () => {
   const url = `http://localhost:${port}`;
   browserResult = await launchBrowser(url, {

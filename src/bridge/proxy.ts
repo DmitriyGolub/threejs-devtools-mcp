@@ -1,7 +1,16 @@
 import http from 'node:http';
+import https from 'node:https';
 import { WebSocket } from 'ws';
+import type { ProxyTarget } from './server.js';
 
-function waitingPage(devPort: number, proxyPort: number): string {
+function targetLabel(target: ProxyTarget): string {
+  const defaultPort = target.protocol === 'https' ? 443 : 80;
+  const portSuffix = target.port === defaultPort ? '' : `:${target.port}`;
+  return `${target.protocol}://${target.hostname}${portSuffix}`;
+}
+
+function waitingPage(target: ProxyTarget, proxyPort: number): string {
+  const label = targetLabel(target);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -58,7 +67,7 @@ function waitingPage(devPort: number, proxyPort: number): string {
 <body>
   <div class="container">
     <div class="badge">threejs-devtools-mcp</div>
-    <h1>Waiting for Dev Server</h1>
+    <h1>Waiting for Server</h1>
     <p class="sub">
       This proxy page connects your Three.js app to AI-powered devtools.
       Start your dev server and this page will automatically load your scene.
@@ -68,7 +77,7 @@ function waitingPage(devPort: number, proxyPort: number): string {
       <div class="card-title">Quick Setup</div>
       <div class="step">
         <div class="num">1</div>
-        <div class="step-text">Start your dev server on port <code>${devPort}</code></div>
+        <div class="step-text">Make sure the server at <code>${label}</code> is running</div>
       </div>
       <div class="step">
         <div class="num">2</div>
@@ -76,7 +85,7 @@ function waitingPage(devPort: number, proxyPort: number): string {
       </div>
       <div class="step">
         <div class="num">3</div>
-        <div class="step-text">Wrong port? Ask the AI to run <code>set_dev_port</code></div>
+        <div class="step-text">Wrong target? Ask the AI to run <code>set_dev_port</code> or <code>set_dev_url</code></div>
       </div>
     </div>
 
@@ -101,33 +110,37 @@ function waitingPage(devPort: number, proxyPort: number): string {
 
     <div class="status">
       <div class="dot"></div>
-      Polling localhost:${devPort}...
+      Polling ${label}...
     </div>
-    <div class="route">proxy :${proxyPort} &rarr; dev :${devPort}</div>
+    <div class="route">proxy :${proxyPort} &rarr; ${label}</div>
   </div>
   <script>setTimeout(()=>location.reload(),3000)</script>
 </body>
 </html>`;
 }
 
-/** Proxy an HTTP request to the dev server, injecting bridge into HTML */
+function httpModule(target: ProxyTarget) {
+  return target.protocol === 'https' ? https : http;
+}
+
+/** Proxy an HTTP request to the target server, injecting bridge into HTML */
 export function proxyRequest(
   clientReq: http.IncomingMessage,
   clientRes: http.ServerResponse,
-  devPort: number,
+  target: ProxyTarget,
   proxyPort: number,
   bridgeScript: string | null,
 ): void {
   const options: http.RequestOptions = {
-    hostname: 'localhost',
-    port: devPort,
+    hostname: target.hostname,
+    port: target.port,
     path: clientReq.url,
     method: clientReq.method,
-    headers: { ...clientReq.headers, host: `localhost:${devPort}` },
+    headers: { ...clientReq.headers, host: `${target.hostname}:${target.port}` },
   };
   delete (options.headers as Record<string, unknown>)['accept-encoding'];
 
-  const proxyReq = http.request(options, (proxyRes) => {
+  const proxyReq = httpModule(target).request(options, (proxyRes) => {
     const contentType = proxyRes.headers['content-type'] || '';
 
     if (contentType.includes('text/html')) {
@@ -158,37 +171,38 @@ export function proxyRequest(
 
   proxyReq.on('error', () => {
     clientRes.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8' });
-    clientRes.end(waitingPage(devPort, proxyPort));
+    clientRes.end(waitingPage(target, proxyPort));
   });
 
   clientReq.pipe(proxyReq);
 }
 
-/** Proxy a WebSocket connection to the dev server (HMR etc.) */
-export function proxyWebSocket(clientWs: WebSocket, req: http.IncomingMessage, devPort: number): void {
-  const target = new WebSocket(`ws://localhost:${devPort}${req.url}`);
-  target.on('open', () => {
-    clientWs.on('message', (data) => target.send(data));
-    target.on('message', (data) => clientWs.send(data));
+/** Proxy a WebSocket connection to the target server (HMR etc.) */
+export function proxyWebSocket(clientWs: WebSocket, req: http.IncomingMessage, target: ProxyTarget): void {
+  const wsProto = target.protocol === 'https' ? 'wss' : 'ws';
+  const remote = new WebSocket(`${wsProto}://${target.hostname}:${target.port}${req.url}`);
+  remote.on('open', () => {
+    clientWs.on('message', (data) => remote.send(data));
+    remote.on('message', (data) => clientWs.send(data));
   });
-  target.on('close', () => clientWs.close());
-  clientWs.on('close', () => target.close());
-  target.on('error', () => clientWs.close());
-  clientWs.on('error', () => target.close());
+  remote.on('close', () => clientWs.close());
+  clientWs.on('close', () => remote.close());
+  remote.on('error', () => clientWs.close());
+  clientWs.on('error', () => remote.close());
 }
 
-/** Proxy a raw WebSocket upgrade to the dev server */
+/** Proxy a raw WebSocket upgrade to the target server */
 export function proxyUpgrade(
-  req: http.IncomingMessage, socket: any, head: Buffer, devPort: number,
+  req: http.IncomingMessage, socket: any, head: Buffer, target: ProxyTarget,
 ): void {
   const headers = {
     ...req.headers,
-    host: `localhost:${devPort}`,
-    origin: `http://localhost:${devPort}`,
+    host: `${target.hostname}:${target.port}`,
+    origin: `${target.protocol}://${target.hostname}:${target.port}`,
   };
 
-  const proxyReq = http.request({
-    hostname: 'localhost', port: devPort, path: req.url,
+  const proxyReq = httpModule(target).request({
+    hostname: target.hostname, port: target.port, path: req.url,
     method: 'GET', headers,
   });
 
@@ -207,7 +221,7 @@ export function proxyUpgrade(
   });
 
   proxyReq.on('response', (res) => {
-    // Dev server didn't upgrade — forward the HTTP response and close
+    // Target server didn't upgrade — forward the HTTP response and close
     const statusLine = `HTTP/${res.httpVersion} ${res.statusCode} ${res.statusMessage}\r\n`;
     const hdrs = Object.entries(res.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n');
     socket.write(statusLine + hdrs + '\r\n\r\n');
