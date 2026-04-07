@@ -56,6 +56,10 @@ import { perfMonitorHandler } from './handlers/perf-monitor.js';
 import { clickInspectHandler } from './handlers/click-inspect.js';
 import { sceneExportHandler } from './handlers/scene-export.js';
 import { toggleOverlayHandler, overlaySelectedHandler, autoShowOverlay } from './handlers/overlay/index.js';
+import { batchedMeshDetailsHandler } from './handlers/batched-mesh.js';
+import { clippingDetailsHandler, setClippingHandler } from './handlers/clipping.js';
+import { drawCallBreakdownHandler } from './handlers/draw-calls.js';
+import { setPostprocessingHandler } from './handlers/postprocessing-mutate.js';
 
 const handlers: Record<string, Handler> = {
   scene_tree: sceneTreeHandler,
@@ -114,6 +118,11 @@ const handlers: Record<string, Handler> = {
   scene_export: sceneExportHandler,
   toggle_overlay: toggleOverlayHandler,
   overlay_selected: overlaySelectedHandler,
+  batched_mesh_details: batchedMeshDetailsHandler,
+  clipping_details: clippingDetailsHandler,
+  set_clipping: setClippingHandler,
+  draw_call_breakdown: drawCallBreakdownHandler,
+  set_postprocessing: setPostprocessingHandler,
 };
 
 function startBridge(): void {

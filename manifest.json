@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "threejs-devtools-mcp",
   "display_name": "Three.js DevTools",
-  "version": "0.4.1",
-  "description": "Inspect and edit Three.js scenes in real time — 59 tools for objects, materials, shaders, textures, animations, performance, memory diagnostics, and code generation.",
+  "version": "0.4.2",
+  "description": "Inspect and edit Three.js scenes in real time — 64 tools for objects, materials, shaders, textures, animations, performance, memory diagnostics, and code generation.",
   "author": {
     "name": "DmitriyGolub",
     "url": "https://github.com/DmitriyGolub"

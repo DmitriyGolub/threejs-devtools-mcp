@@ -368,6 +368,48 @@ SHADER PATCHING RECIPE — when modifying materials via onBeforeCompile:
     'List post-processing passes from EffectComposer: render passes, shader passes, effects (bloom, SSAO, etc.)',
     {});
 
+  bridgeTool(server, bridge, 'set_postprocessing',
+    'Modify post-processing: enable/disable passes, change uniforms, adjust effect parameters — runtime-only preview (lost on reload). ASK the user first: runtime preview or persistent code change?',
+    { passIndex: z.number().optional().describe('Pass index (from postprocessing_list)'),
+      passName: z.string().optional().describe('Pass name or constructor name (e.g. "BloomPass", "UnrealBloomPass")'),
+      enabled: z.boolean().optional().describe('Enable/disable the pass'),
+      uniforms: z.record(z.any()).optional().describe('Uniform values to set: { "threshold": 0.5, "strength": 1.0 }'),
+      effectIndex: z.number().optional().describe('Effect index within an EffectPass (postprocessing library)'),
+      effectParams: z.record(z.any()).optional().describe('Effect parameters to set: { "intensity": 2.0 }') });
+
+  // ── BatchedMesh ──────────────────────────────────────────
+
+  bridgeTool(server, bridge, 'batched_mesh_details',
+    'Inspect BatchedMesh objects: geometry counts, draw ranges, instance visibility, shared buffer stats. Lists all BatchedMeshes if no name/uuid given.',
+    { name: z.string().optional().describe('BatchedMesh name'),
+      uuid: z.string().optional().describe('BatchedMesh UUID') });
+
+  // ── Clipping Planes ─────────────────────────────────────
+
+  bridgeTool(server, bridge, 'clipping_details',
+    'Inspect clipping planes: renderer global planes, per-material clipping, ClippingGroup objects',
+    {});
+
+  bridgeTool(server, bridge, 'set_clipping',
+    'Modify clipping planes on renderer or material — runtime-only preview (lost on reload). ASK the user first: runtime preview or persistent code change?',
+    { target: z.enum(['renderer', 'material']).optional().describe('Target: "renderer" for global planes, "material" for per-material (default: renderer)'),
+      name: z.string().optional().describe('Material name (when target=material)'),
+      uuid: z.string().optional().describe('Material UUID (when target=material)'),
+      localClippingEnabled: z.boolean().optional().describe('Enable/disable local clipping on renderer'),
+      planes: z.array(z.object({
+        normal: z.array(z.number()).length(3).describe('Plane normal [x,y,z]'),
+        constant: z.number().describe('Plane constant (distance from origin)'),
+      })).optional().describe('Clipping planes array'),
+      clipIntersection: z.boolean().optional().describe('Use intersection of planes instead of union (material only)'),
+      clipShadows: z.boolean().optional().describe('Clip shadows too (material only)'),
+      enabled: z.boolean().optional().describe('Set to false to remove clipping planes from material') });
+
+  // ── Draw Call Breakdown ─────────────────────────────────
+
+  bridgeTool(server, bridge, 'draw_call_breakdown',
+    'Per-object draw call and triangle cost analysis. Shows which objects are most expensive, sorted by triangle count. Identifies multi-material objects and hidden geometry waste.',
+    {});
+
   // ── Console Capture ──────────────────────────────────────
 
   bridgeTool(server, bridge, 'console_capture',

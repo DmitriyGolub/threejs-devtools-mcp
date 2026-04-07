@@ -1,6 +1,6 @@
 # Tools Reference — threejs-devtools-mcp
 
-59 tools for inspecting, debugging, and modifying Three.js scenes.
+64 tools for inspecting, debugging, and modifying Three.js scenes.
 
 ## Scene inspection
 
@@ -39,6 +39,7 @@
 |------|-------------|
 | `geometry_details` | Geometry attributes, vertex count, bounding box |
 | `instanced_mesh_details` | InstancedMesh instance data (transforms, colors, count) |
+| `batched_mesh_details` | **BatchedMesh** inspection: geometry counts, draw ranges, instance visibility, shared buffer stats |
 | `morph_targets` | Morph target names and weights |
 
 ## Animation
@@ -57,6 +58,7 @@
 | `performance_snapshot` | FPS, frame time, memory usage snapshot |
 | `perf_monitor` | **Record FPS/frame times** over N seconds — avg/min/max, p50/p95/p99, spike/jank detection |
 | `memory_stats` | **GPU memory analysis**: geometry buffers, texture VRAM, instance data, top textures by size |
+| `draw_call_breakdown` | **Per-object cost analysis**: which objects contribute most draw calls/triangles, sorted by cost |
 | `dispose_check` | **Leak detection**: orphaned geometries/textures not in scene but tracked by renderer |
 
 ## Post-processing
@@ -64,6 +66,7 @@
 | Tool | Description |
 |------|-------------|
 | `postprocessing_list` | List EffectComposer passes: render passes, shader passes, effects (bloom, SSAO, etc.) |
+| `set_postprocessing` | **Modify post-processing**: enable/disable passes, change uniforms, adjust effect parameters |
 
 ## Debugging & visualization
 
@@ -112,6 +115,14 @@
 | `set_layers` | Change object layer membership |
 | `set_morph_target` | Set morph target weights |
 | `set_instanced_mesh` | Modify InstancedMesh properties (count, visibility, frustum culling) |
+| `set_clipping` | **Modify clipping planes** on renderer or material (add/remove planes, toggle) |
+
+## Clipping planes
+
+| Tool | Description |
+|------|-------------|
+| `clipping_details` | Inspect clipping planes: renderer global, per-material, ClippingGroup objects |
+| `set_clipping` | Add/remove clipping planes on renderer or material |
 
 ## Connection
 

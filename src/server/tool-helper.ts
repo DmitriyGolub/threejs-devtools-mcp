@@ -12,6 +12,7 @@ const RUNTIME_PREVIEW_TOOLS = new Set([
   'set_light', 'set_fog', 'set_renderer', 'set_camera',
   'set_texture', 'set_shadow', 'set_morph_target',
   'set_instanced_mesh', 'set_layers', 'set_animation',
+  'set_postprocessing', 'set_clipping',
 ]);
 
 const DEBUG_ONLY_TOOLS = new Set([

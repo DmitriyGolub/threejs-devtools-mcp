@@ -11,7 +11,7 @@ import { getThreeModule } from '../discovery/index.js';
 // ── helpers ──────────────────────────────────────────────
 
 /** Get accurate type string — obj.type is often just "Mesh" for subclasses */
-function resolveType(obj: any): string {
+export function resolveType(obj: any): string {
   if (obj.isInstancedMesh) return 'InstancedMesh';
   if (obj.isSkinnedMesh) return 'SkinnedMesh';
   if (obj.isBatchedMesh) return 'BatchedMesh';
