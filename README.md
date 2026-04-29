@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/dmitriygolub-threejs-devtools-mcp-badge.png)](https://mseep.ai/app/dmitriygolub-threejs-devtools-mcp)
+
 # threejs-devtools-mcp
 
 [![npm version](https://img.shields.io/npm/v/threejs-devtools-mcp)](https://www.npmjs.com/package/threejs-devtools-mcp)
