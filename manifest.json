@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "threejs-devtools-mcp",
   "display_name": "Three.js DevTools",
-  "version": "0.4.1",
-  "description": "Inspect and edit Three.js scenes in real time — 59 tools for objects, materials, shaders, textures, animations, performance, memory diagnostics, and code generation.",
+  "version": "0.5.0",
+  "description": "Inspect Three.js / React Three Fiber scenes, live-preview tweaks in the browser and turn them into code. Website audits, video frame capture, Playwright helpers — 69 tools.",
   "author": {
     "name": "DmitriyGolub",
     "url": "https://github.com/DmitriyGolub"
@@ -15,81 +15,313 @@
   },
   "homepage": "https://github.com/DmitriyGolub/threejs-devtools-mcp",
   "support": "https://github.com/DmitriyGolub/threejs-devtools-mcp/issues",
-  "keywords": ["threejs", "three.js", "devtools", "debugging", "3d", "webgl", "react-three-fiber"],
+  "keywords": [
+    "threejs",
+    "three.js",
+    "devtools",
+    "debugging",
+    "3d",
+    "webgl",
+    "webgpu",
+    "react-three-fiber",
+    "playwright"
+  ],
   "server": {
     "type": "node",
     "entry_point": "dist/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/dist/index.js"]
+      "args": [
+        "${__dirname}/dist/index.js"
+      ]
     }
   },
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"],
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
     "runtimes": {
-      "node": ">=18.0.0"
+      "node": ">=22.18.0"
     }
   },
   "tools": [
-    { "name": "scene_tree", "description": "List all objects in the scene tree" },
-    { "name": "object_details", "description": "Get detailed info about a specific object" },
-    { "name": "material_list", "description": "List all materials in the scene" },
-    { "name": "material_details", "description": "Get full properties of a material" },
-    { "name": "set_material_property", "description": "Set a material property (color, roughness, etc.)" },
-    { "name": "shader_list", "description": "List all compiled shader programs" },
-    { "name": "shader_source", "description": "Get vertex/fragment shader source" },
-    { "name": "set_uniform", "description": "Set a shader uniform value" },
-    { "name": "texture_list", "description": "List all textures with details" },
-    { "name": "texture_details", "description": "Get detailed texture info" },
-    { "name": "texture_preview", "description": "Preview a texture as a PNG image" },
-    { "name": "set_texture", "description": "Modify texture properties" },
-    { "name": "renderer_info", "description": "Get renderer stats" },
-    { "name": "renderer_settings", "description": "Get renderer configuration" },
-    { "name": "set_renderer", "description": "Modify renderer settings" },
-    { "name": "take_screenshot", "description": "Capture a screenshot of the scene" },
-    { "name": "set_object_transform", "description": "Set position, rotation, scale of an object" },
-    { "name": "set_light", "description": "Modify light properties" },
-    { "name": "camera_details", "description": "Get camera properties" },
-    { "name": "set_camera", "description": "Modify camera settings" },
-    { "name": "fog_details", "description": "Get scene fog settings" },
-    { "name": "set_fog", "description": "Modify scene fog" },
-    { "name": "animation_details", "description": "List animation mixers, clips, and playback state" },
-    { "name": "set_animation", "description": "Control animation playback" },
-    { "name": "skeleton_details", "description": "List skeletons and bones" },
-    { "name": "geometry_details", "description": "Inspect geometry attributes" },
-    { "name": "morph_targets", "description": "List morph targets and influences" },
-    { "name": "set_morph_target", "description": "Set morph target influence" },
-    { "name": "find_objects", "description": "Search objects by type, material, visibility, name" },
-    { "name": "memory_stats", "description": "GPU memory analysis" },
-    { "name": "dispose_check", "description": "Find potential memory leaks" },
-    { "name": "performance_snapshot", "description": "Get performance analysis" },
-    { "name": "perf_monitor", "description": "Record FPS and frame times" },
-    { "name": "console_capture", "description": "Capture browser console output" },
-    { "name": "click_inspect", "description": "Click-to-inspect mode" },
-    { "name": "scene_export", "description": "Export scene as GLB" },
-    { "name": "scene_diff", "description": "Compare scene state over time" },
-    { "name": "raycast", "description": "Cast rays and get hit objects" },
-    { "name": "highlight_object", "description": "Highlight an object for debugging" },
-    { "name": "toggle_wireframe", "description": "Toggle wireframe mode" },
-    { "name": "bounding_boxes", "description": "Show/hide bounding boxes" },
-    { "name": "run_js", "description": "Execute JavaScript with scene access" },
-    { "name": "gltf_to_r3f", "description": "Convert GLTF to React Three Fiber component" },
-    { "name": "add_helper", "description": "Add visual debug helpers" },
-    { "name": "remove_helper", "description": "Remove debug helpers" },
-    { "name": "shadow_details", "description": "Inspect shadow maps" },
-    { "name": "set_shadow", "description": "Modify shadow settings" },
-    { "name": "scene_background", "description": "Inspect environment and background" },
-    { "name": "env_map_details", "description": "Inspect environment maps" },
-    { "name": "layer_details", "description": "Show layer assignments" },
-    { "name": "set_layers", "description": "Set layers on objects" },
-    { "name": "postprocessing_list", "description": "List post-processing passes" },
-    { "name": "annotated_screenshot", "description": "Screenshot with smart object labels" },
-    { "name": "toggle_overlay", "description": "In-browser devtools overlay (FPS, scene graph, materials)" },
-    { "name": "overlay_selected", "description": "Get details of selected object in overlay" },
-    { "name": "instanced_mesh_details", "description": "Inspect InstancedMesh data" },
-    { "name": "set_instanced_mesh", "description": "Modify InstancedMesh properties" },
-    { "name": "bridge_status", "description": "Check bridge connection status" },
-    { "name": "set_dev_port", "description": "Change the proxied dev server port" },
-    { "name": "set_dev_url", "description": "Connect to a remote Three.js app by URL" }
+    {
+      "name": "scene_tree",
+      "description": "Scene hierarchy (inspect)"
+    },
+    {
+      "name": "object_details",
+      "description": "Detailed info about one object by name, uuid, or dot path (inspect)"
+    },
+    {
+      "name": "find_objects",
+      "description": "Search objects by type, material, visibility, name pattern, or custom property (inspect)"
+    },
+    {
+      "name": "raycast",
+      "description": "Cast a ray from the camera through screen coordinates and return hit objects (inspect)"
+    },
+    {
+      "name": "click_inspect",
+      "description": "Click-to-inspect: the cursor becomes a crosshair — tell the user to click an object in the 3D view (inspect)"
+    },
+    {
+      "name": "scene_diff",
+      "description": "Compare scene state over time: first call saves a snapshot, next call lists added/removed/modified objects (inspect)"
+    },
+    {
+      "name": "layer_details",
+      "description": "Camera layer mask and objects with non-default layers (inspect)"
+    },
+    {
+      "name": "set_object_transform",
+      "description": "Set position, rotation, scale, or visibility of an object (live preview)"
+    },
+    {
+      "name": "set_layers",
+      "description": "Set layers on an object or the camera (live preview)"
+    },
+    {
+      "name": "material_list",
+      "description": "All materials in the scene with type, color, transparency (inspect)"
+    },
+    {
+      "name": "material_details",
+      "description": "Full material properties: colors, PBR/physical params, maps, uniforms, defines, NodeMaterial (TSL) slots (inspect)"
+    },
+    {
+      "name": "shader_list",
+      "description": "Compiled shader programs with their materials (WebGL) (inspect)"
+    },
+    {
+      "name": "shader_source",
+      "description": "Vertex/fragment GLSL source and uniforms of a material (inspect)"
+    },
+    {
+      "name": "texture_list",
+      "description": "All textures: size, format, wrap, filter settings (inspect)"
+    },
+    {
+      "name": "texture_details",
+      "description": "Detailed info about one texture (inspect)"
+    },
+    {
+      "name": "texture_preview",
+      "description": "Show a texture as a PNG image (inspect)"
+    },
+    {
+      "name": "set_material_property",
+      "description": "Set a material property (live preview)"
+    },
+    {
+      "name": "set_uniform",
+      "description": "Set a ShaderMaterial uniform (live preview)"
+    },
+    {
+      "name": "set_texture",
+      "description": "Change texture sampling and transform: wrap, filter, anisotropy, repeat, offset, rotation, colorSpace (live preview)"
+    },
+    {
+      "name": "shadow_details",
+      "description": "Shadow maps: global settings, per-light bias/mapSize/camera frustum, casters and receivers (inspect)"
+    },
+    {
+      "name": "scene_background",
+      "description": "Scene background, environment map (IBL), backgroundBlurriness/Intensity, color management (inspect)"
+    },
+    {
+      "name": "env_map_details",
+      "description": "Environment maps: scene.environment, scene.background, per-material envMap (inspect)"
+    },
+    {
+      "name": "fog_details",
+      "description": "Scene fog: type (Fog/FogExp2), color, near/far or density (inspect)"
+    },
+    {
+      "name": "set_light",
+      "description": "Change a light: color, intensity, position, castShadow, groundColor (HemisphereLight) (live preview)"
+    },
+    {
+      "name": "set_shadow",
+      "description": "Change shadow casting/receiving on any object, and bias/mapSize/shadow camera on lights (live preview)"
+    },
+    {
+      "name": "set_fog",
+      "description": "Change scene fog (color, near/far or density) and the background color (live preview)"
+    },
+    {
+      "name": "camera_details",
+      "description": "Active camera: type, position, FOV, near/far, aspect (inspect)"
+    },
+    {
+      "name": "renderer_info",
+      "description": "Renderer stats and backend (WebGL / WebGPU): draw calls, triangles, memory, capabilities (inspect)"
+    },
+    {
+      "name": "renderer_settings",
+      "description": "Renderer configuration: toneMapping, exposure, colorSpace, shadowMap, pixelRatio (inspect)"
+    },
+    {
+      "name": "clipping_details",
+      "description": "Clipping planes: renderer global, per-material, ClippingGroup objects (inspect)"
+    },
+    {
+      "name": "postprocessing_list",
+      "description": "EffectComposer passes: render passes, shader passes, effects (bloom, SSAO, …) (inspect)"
+    },
+    {
+      "name": "set_camera",
+      "description": "Change the active camera: position, rotation, FOV, near/far, zoom, ortho bounds (live preview)"
+    },
+    {
+      "name": "set_renderer",
+      "description": "Change renderer settings: tone mapping, exposure, color space, pixel ratio, shadows (live preview)"
+    },
+    {
+      "name": "set_clipping",
+      "description": "Change clipping planes on the renderer (global) or a material (live preview)"
+    },
+    {
+      "name": "set_postprocessing",
+      "description": "Enable/disable passes, set pass uniforms or effect parameters (live preview)"
+    },
+    {
+      "name": "geometry_details",
+      "description": "Geometry of a mesh: vertices, attributes, index, bounding box, morph attributes (inspect)"
+    },
+    {
+      "name": "instanced_mesh_details",
+      "description": "InstancedMesh: count, capacity, sample transforms, instance colors and custom attributes (inspect)"
+    },
+    {
+      "name": "batched_mesh_details",
+      "description": "BatchedMesh: geometry counts, draw ranges, instance visibility (inspect)"
+    },
+    {
+      "name": "morph_targets",
+      "description": "Meshes with morph targets: target names and current influences (inspect)"
+    },
+    {
+      "name": "skeleton_details",
+      "description": "Skeletons and bones of SkinnedMesh objects (inspect)"
+    },
+    {
+      "name": "animation_details",
+      "description": "AnimationMixers with their actions, clips, weights and playback state (inspect)"
+    },
+    {
+      "name": "set_instanced_mesh",
+      "description": "Change InstancedMesh count, visibility, frustumCulled (live preview)"
+    },
+    {
+      "name": "set_morph_target",
+      "description": "Set a morph target influence (live preview)"
+    },
+    {
+      "name": "set_animation",
+      "description": "Control playback: mixer timeScale/time, action play/stop/pause/weight by clip name (live preview)"
+    },
+    {
+      "name": "web_audit",
+      "description": "Website health check: pixel ratio, canvas resize, idle/off-screen rendering, antialias cost, oversized or uncompressed textures, shadow cost, color space, draw calls (inspect)"
+    },
+    {
+      "name": "performance_snapshot",
+      "description": "Draw calls, triangles, instanced meshes, object counts by type (inspect)"
+    },
+    {
+      "name": "perf_monitor",
+      "description": "Record FPS and frame times for N seconds: avg/min/max, percentiles, spikes, jank (inspect)"
+    },
+    {
+      "name": "draw_call_breakdown",
+      "description": "Per-object draw call and triangle cost, sorted by cost (inspect)"
+    },
+    {
+      "name": "memory_stats",
+      "description": "GPU memory: geometry buffers, texture VRAM, instance data, top textures by size (inspect)"
+    },
+    {
+      "name": "dispose_check",
+      "description": "Leak detection: geometries/textures tracked by the renderer but no longer in the scene (inspect)"
+    },
+    {
+      "name": "console_capture",
+      "description": "Recent browser console output (log/warn/error) (inspect)"
+    },
+    {
+      "name": "toggle_overlay",
+      "description": "In-browser inspector panel: live FPS, draw calls, scene tree, materials, lights (debug visual)"
+    },
+    {
+      "name": "overlay_selected",
+      "description": "Everything about the object the user selected in the overlay: materials, geometry, transforms, textures, uniforms, shadows (inspect)"
+    },
+    {
+      "name": "highlight_object",
+      "description": "Highlight an object with wireframe, or toggle its visibility, to point it out (debug visual)"
+    },
+    {
+      "name": "toggle_wireframe",
+      "description": "Wireframe on all materials or one object (debug visual)"
+    },
+    {
+      "name": "bounding_boxes",
+      "description": "Show/hide bounding boxes — debug frustum culling and object bounds (debug visual)"
+    },
+    {
+      "name": "add_helper",
+      "description": "Add a debug helper to an object: box, axes, skeleton, arrow, grid, camera frustum, light helpers, plane (debug visual)"
+    },
+    {
+      "name": "remove_helper",
+      "description": "Remove a helper added with add_helper (debug visual)"
+    },
+    {
+      "name": "run_js",
+      "description": "Run JavaScript in the page with scene, renderer, camera, gl in scope; `return` a value to get it back (debug visual)"
+    },
+    {
+      "name": "take_screenshot",
+      "description": "Screenshot of the current scene (also saved as PNG in screenshots/) (inspect)"
+    },
+    {
+      "name": "annotated_screenshot",
+      "description": "Screenshot with object names drawn at their screen positions ([M]esh, [L]ight, [G]roup, [C]amera) (inspect)"
+    },
+    {
+      "name": "capture_frames",
+      "description": "Record a frame sequence for a video (inspect)"
+    },
+    {
+      "name": "scene_export",
+      "description": "Export the scene or one object as GLB/glTF into screenshots/ (inspect)"
+    },
+    {
+      "name": "pending_changes",
+      "description": "Everything changed with live-preview tools since the last clear: before → after per property, plus ready-to-paste code (vanilla Three.js and/or React Three Fiber) and where to find each target (for code)"
+    },
+    {
+      "name": "revert_changes",
+      "description": "Undo live-preview changes in the browser (all, or selected ids from pending_changes), newest first (live preview)"
+    },
+    {
+      "name": "gltf_to_r3f",
+      "description": "Convert a GLB/glTF file into a React Three Fiber component (like gltfjsx) (for code)"
+    },
+    {
+      "name": "bridge_status",
+      "description": "Bridge connection, proxy target, and how to attach Playwright to the same browser (connection)"
+    },
+    {
+      "name": "set_dev_port",
+      "description": "Point the proxy at another local dev server port (connection)"
+    },
+    {
+      "name": "set_dev_url",
+      "description": "Inspect a remote Three.js app by URL (connection)"
+    }
   ]
 }

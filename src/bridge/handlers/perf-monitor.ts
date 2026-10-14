@@ -4,7 +4,7 @@ export const perfMonitorHandler: Handler = (_ctx, params) => {
   const duration = Math.min(Math.max((params.duration as number) || 3, 0.5), 30);
   const includeFrameTimes = params.includeFrameTimes === true;  // off by default — saves tokens
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const frameTimes: number[] = [];
     let lastTime = 0;
     const endTime = performance.now() + duration * 1000;
@@ -13,7 +13,9 @@ export const perfMonitorHandler: Handler = (_ctx, params) => {
       if (lastTime > 0) frameTimes.push(now - lastTime);
       lastTime = now;
       if (now < endTime) requestAnimationFrame(measure);
-      else resolve(computeStats(frameTimes, duration, includeFrameTimes));
+      else {
+        try { resolve(computeStats(frameTimes, duration, includeFrameTimes)); } catch (err) { reject(err); }
+      }
     }
 
     requestAnimationFrame(measure);
@@ -21,7 +23,7 @@ export const perfMonitorHandler: Handler = (_ctx, params) => {
 };
 
 function computeStats(frameTimes: number[], duration: number, includeRaw: boolean) {
-  if (frameTimes.length === 0) return { error: 'No frames recorded' };
+  if (frameTimes.length === 0) throw new Error('No frames recorded — is the render loop running?');
 
   const total = frameTimes.length;
   const sum = frameTimes.reduce((a, b) => a + b, 0);

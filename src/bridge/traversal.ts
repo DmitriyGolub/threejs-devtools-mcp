@@ -1,7 +1,12 @@
-const MAP_SLOTS = [
+/** Every material property that can hold a texture (incl. MeshPhysicalMaterial maps) */
+export const MAP_SLOTS = [
   'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap',
   'emissiveMap', 'displacementMap', 'alphaMap', 'envMap', 'lightMap',
-  'bumpMap', 'specularMap', 'gradientMap',
+  'bumpMap', 'specularMap', 'gradientMap', 'matcap',
+  'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap',
+  'transmissionMap', 'thicknessMap', 'sheenColorMap', 'sheenRoughnessMap',
+  'iridescenceMap', 'iridescenceThicknessMap', 'anisotropyMap',
+  'specularIntensityMap', 'specularColorMap',
 ];
 
 export function collectMaterials(scene: any): Map<string, any> {
@@ -69,4 +74,29 @@ export function findMaterial(scene: any, name?: string, uuid?: string): any {
     }
   }
   return null;
+}
+
+export function findTexture(scene: any, name?: string, uuid?: string): any {
+  for (const tex of collectTextures(scene).values()) {
+    if ((uuid && tex.uuid === uuid) || (name && tex.name === name)) return tex;
+  }
+  return null;
+}
+
+/** Dot path from the scene root, e.g. "Scene.Car.Body" — used to locate objects in source code */
+export function objectPath(obj: any): string {
+  const parts: string[] = [];
+  for (let o = obj; o; o = o.parent) parts.unshift(o.name || o.type);
+  return parts.join('.');
+}
+
+/** First object in the scene that uses this material */
+export function findMaterialOwner(scene: any, mat: any): any {
+  let owner: any = null;
+  scene.traverse((obj: any) => {
+    if (owner || !obj.material) return;
+    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+    if (mats.includes(mat)) owner = obj;
+  });
+  return owner;
 }

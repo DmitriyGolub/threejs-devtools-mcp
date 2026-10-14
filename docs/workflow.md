@@ -15,7 +15,26 @@ A full `scene_tree` JSON can be **60KB+** — that's a huge chunk of context was
 2. Find object by name
 3. object_details(name)    → specifics for one object
 4. material_details(name)  → material properties
-5. set_* tools             → make changes
+5. Change it — see below: preview in the browser, or edit the code
+```
+
+## Look now vs. change the code
+
+| You say | What happens | Saved? |
+|---|---|---|
+| "try the car in red", "what if the fog was denser" | **Live preview**: `set_*` tools change the running scene, then a screenshot | No, lost on reload |
+| "keep it", "save that" | `pending_changes` → the agent edits your source → `pending_changes clear=true` | Yes |
+| "undo" | `revert_changes` restores the previous values in the browser | — |
+| "make the car red", "fix the shadows" | The agent edits your source directly (a preview first is optional) | Yes |
+
+```
+→ set_material_property(name="Body", property="color", value="#ff0000")
+← { success: true, … }   _note: Live preview only — not saved. 1 pending change(s) …
+
+→ pending_changes(style="r3f")
+← ## Material "CarPaint" (MeshPhysicalMaterial) — used by Scene.Car.Body
+  <meshPhysicalMaterial color="#ff0000" />
+  - #1 color: "#3366ff" → "#ff0000"
 ```
 
 ## Examples

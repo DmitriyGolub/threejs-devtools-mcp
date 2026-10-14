@@ -6,6 +6,16 @@ export const shaderSourceHandler: Handler = (ctx, params) => {
   const mat = findMaterial(ctx.scene, params.materialName as string, params.materialUuid as string);
   if (!mat) throw new Error(`Material not found: ${params.materialName || params.materialUuid}`);
 
+  if (mat.isNodeMaterial) {
+    return {
+      materialName: mat.name, materialUuid: mat.uuid,
+      materialType: mat.constructor?.name || mat.type,
+      nodeMaterial: true,
+      note: 'NodeMaterial (TSL) — shaders are generated from a node graph, there is no hand-written GLSL. '
+        + 'Edit the *Node properties in source (colorNode, positionNode, …); see material_details for which are set.',
+    };
+  }
+
   if (mat.isShaderMaterial || mat.isRawShaderMaterial) {
     return {
       materialName: mat.name, materialUuid: mat.uuid,

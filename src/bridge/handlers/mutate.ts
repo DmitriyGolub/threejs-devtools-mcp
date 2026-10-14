@@ -16,7 +16,7 @@ export function resolveObject(ctx: any, params: Record<string, unknown>): any {
   return obj;
 }
 
-function resolveMaterial(ctx: any, params: Record<string, unknown>): any {
+export function resolveMaterial(ctx: any, params: Record<string, unknown>): any {
   // Try direct material lookup first
   let mat = findMaterial(ctx.scene, params.name as string, params.uuid as string);
   if (mat) return mat;
@@ -35,10 +35,16 @@ function resolveMaterial(ctx: any, params: Record<string, unknown>): any {
 
 // ── set_material_property ────────────────────────────────
 
-const SETTABLE_MATERIAL_PROPS = new Set([
-  'color', 'emissive', 'roughness', 'metalness', 'opacity',
-  'transparent', 'wireframe', 'visible', 'side', 'depthWrite',
-  'depthTest', 'alphaTest', 'flatShading', 'fog',
+const COLOR_PROPS = new Set(['color', 'emissive', 'sheenColor', 'specularColor', 'attenuationColor']);
+
+export const SETTABLE_MATERIAL_PROPS = new Set([
+  ...COLOR_PROPS,
+  'roughness', 'metalness', 'opacity', 'emissiveIntensity', 'envMapIntensity',
+  'transparent', 'wireframe', 'visible', 'side', 'depthWrite', 'depthTest',
+  'alphaTest', 'flatShading', 'fog',
+  // MeshPhysicalMaterial
+  'clearcoat', 'clearcoatRoughness', 'transmission', 'thickness', 'ior',
+  'sheen', 'sheenRoughness', 'iridescence', 'anisotropy', 'dispersion', 'specularIntensity',
 ]);
 
 export const setMaterialPropertyHandler: Handler = (ctx, params) => {
@@ -53,7 +59,7 @@ export const setMaterialPropertyHandler: Handler = (ctx, params) => {
   }
 
   // Color properties need special handling (sRGB input → linear internal)
-  if (prop === 'color' || prop === 'emissive') {
+  if (COLOR_PROPS.has(prop)) {
     if (!mat[prop]) throw new Error(`Material has no "${prop}" property`);
     setColorFromHex(mat[prop], value);
   } else {

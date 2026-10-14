@@ -83,7 +83,7 @@ export const overlaySelectedHandler: Handler = (_ctx) => {
   const w = window as any;
   const obj = w.__tdt_selected;
   if (!obj) {
-    return { error: 'No object selected in overlay. Open the overlay (toggle_overlay) and click an object in the scene tree first.' };
+    throw new Error('No object selected in overlay. Open the overlay (toggle_overlay) and click an object in the scene tree first.');
   }
   return { info: collectObjectInfo(obj) };
 };

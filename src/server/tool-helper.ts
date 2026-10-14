@@ -1,100 +1,140 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z } from 'zod';
-import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
+import type { z } from 'zod';
 import type { BridgeServer } from '../bridge/server.js';
 
 /**
- * Tools that modify the scene at runtime.
- * set_* tools need code changes too; debug tools are runtime-only.
+ * Every tool has exactly one mode. It decides the label the AI client sees,
+ * the MCP annotations, and the note appended to results — so "look", "try"
+ * and "change the code" never get mixed up.
  */
-const RUNTIME_PREVIEW_TOOLS = new Set([
-  'set_material_property', 'set_uniform', 'set_object_transform',
-  'set_light', 'set_fog', 'set_renderer', 'set_camera',
-  'set_texture', 'set_shadow', 'set_morph_target',
-  'set_instanced_mesh', 'set_layers', 'set_animation',
-]);
+export type ToolMode =
+  /** Reads the scene. Changes nothing. */
+  | 'inspect'
+  /** Changes the scene in the browser only; recorded in pending_changes, lost on reload. */
+  | 'preview'
+  /** Temporary visual aid (helpers, wireframe, overlay). Never belongs in code. */
+  | 'debug'
+  /** Produces output meant to be written into the project's source files. */
+  | 'code'
+  /** Configures this MCP server itself. */
+  | 'connection';
 
-const DEBUG_ONLY_TOOLS = new Set([
-  'highlight_object', 'run_js', 'toggle_wireframe',
-  'bounding_boxes', 'add_helper', 'remove_helper',
-  'toggle_overlay',
-]);
+const LABELS: Record<ToolMode, string> = {
+  inspect: '[INSPECT] Read-only.',
+  preview: '[LIVE PREVIEW] Changes the scene in the browser only — NOT saved to source code, lost on reload. '
+    + 'Recorded in pending_changes (→ code edits) and undoable with revert_changes.',
+  debug: '[DEBUG VISUAL] Temporary visual aid in the browser. Nothing to put in code.',
+  code: '[FOR CODE] Output is meant to be written into the project source files.',
+  connection: '[CONNECTION] Configures the devtools server.',
+};
 
-function getScope(toolName: string, isRemote: boolean): string | null {
-  if (RUNTIME_PREVIEW_TOOLS.has(toolName)) {
-    if (isRemote) {
-      return 'REMOTE MODE: Visual/runtime changes only — no source code access. Changes are lost on page reload.';
-    }
-    return 'Runtime preview — lost on page reload. You MUST ask the user first: runtime preview only, or also update source code?';
+const ANNOTATIONS: Record<ToolMode, ToolAnnotations> = {
+  inspect: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  preview: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  debug: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  code: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  connection: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+
+export interface ToolContext {
+  server: McpServer;
+  bridge: BridgeServer;
+}
+
+type Shape = Record<string, z.ZodType>;
+
+export interface ToolOptions {
+  /** Bridge request timeout (default: bridge default) */
+  timeoutMs?: number;
+  /** Override the mode's default annotations */
+  annotations?: Partial<ToolAnnotations>;
+}
+
+// ── Results ──────────────────────────────────────────────
+
+export function textResult(text: string): CallToolResult {
+  return { content: [{ type: 'text', text }] };
+}
+
+export function errorResult(err: unknown): CallToolResult {
+  return { content: [{ type: 'text', text: `Error: ${(err as Error).message}` }], isError: true };
+}
+
+/** Folder for screenshots, previews, exports and frame sequences (created on demand) */
+export function outputDir(...sub: string[]): string {
+  const dir = path.join(process.cwd(), 'screenshots', ...sub);
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** Strip the data-URL prefix, save the image, and return it as MCP image content + caption */
+export function imageResult(dataUrl: string, fileName: string, caption: string): CallToolResult {
+  const [, mimeType = 'image/png', data = ''] = dataUrl.match(/^data:([^;]+);base64,(.*)$/) ?? [];
+  let saved = '';
+  try {
+    saved = path.join(outputDir(), fileName);
+    fs.writeFileSync(saved, Buffer.from(data, 'base64'));
+  } catch { /* saving is a convenience — still return the image */ }
+
+  return {
+    content: [
+      { type: 'image', data, mimeType },
+      { type: 'text', text: saved ? `${caption}\nSaved to: ${saved}` : caption },
+    ],
+  };
+}
+
+// ── Registration ─────────────────────────────────────────
+
+/** Register a tool with a custom implementation */
+export function tool<S extends Shape>(
+  { server }: ToolContext,
+  name: string,
+  mode: ToolMode,
+  description: string,
+  schema: S,
+  run: (params: z.infer<z.ZodObject<S>>) => Promise<CallToolResult>,
+  options: ToolOptions = {},
+): void {
+  server.registerTool(name, {
+    description: `${LABELS[mode]}\n${description}`,
+    annotations: { ...ANNOTATIONS[mode], ...options.annotations },
+    inputSchema: schema,
+  }, (async (params: z.infer<z.ZodObject<S>>) => {
+    try { return await run(params); } catch (err) { return errorResult(err); }
+  }) as any);
+}
+
+/** Note appended to preview/debug results so the agent knows nothing reached the code */
+function resultNote(mode: ToolMode, result: unknown, bridge: BridgeServer): string | null {
+  if (mode === 'preview') {
+    if (bridge.isRemote) return 'Live preview on a remote app — lost on reload. No local source code to update.';
+    const pending = (result as { pendingChanges?: number })?.pendingChanges;
+    return `Live preview only — not saved. ${pending ?? 'Some'} pending change(s): `
+      + 'pending_changes → code to persist them, revert_changes → undo.';
   }
-  if (DEBUG_ONLY_TOOLS.has(toolName)) {
-    return 'Debug only — page reload will reset. No code changes needed.';
-  }
+  if (mode === 'debug') return 'Debug visual — browser only, resets on reload.';
   return null;
 }
 
-function getAnnotations(toolName: string): ToolAnnotations {
-  if (RUNTIME_PREVIEW_TOOLS.has(toolName)) {
-    return { destructiveHint: true, readOnlyHint: false, idempotentHint: true, openWorldHint: false };
-  }
-  if (DEBUG_ONLY_TOOLS.has(toolName)) {
-    return toolName === 'run_js'
-      ? { destructiveHint: true, readOnlyHint: false, idempotentHint: false, openWorldHint: true }
-      : { destructiveHint: false, readOnlyHint: false, idempotentHint: true, openWorldHint: false };
-  }
-  // Read-only inspection tools
-  return { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
-}
-
-/** Register a tool that proxies a request to the browser bridge */
-export function bridgeTool(
-  server: McpServer,
-  bridge: BridgeServer,
+/** Register a tool that forwards its params to the browser bridge handler of the same name */
+export function bridgeTool<S extends Shape>(
+  ctx: ToolContext,
   name: string,
+  mode: ToolMode,
   description: string,
-  schema: Record<string, z.ZodType>,
-  timeoutMs?: number,
+  schema: S = {} as S,
+  options: ToolOptions = {},
 ): void {
-  const hasParams = Object.keys(schema).length > 0;
-  // Use non-remote scope for static description (tool listing)
-  const staticScope = getScope(name, false);
-
-  // Prepend scope tag to description so AI clients see it
-  const taggedDescription = staticScope
-    ? `${description}\n\n${staticScope}`
-    : description;
-
-  server.registerTool(name, {
-    description: taggedDescription,
-    annotations: getAnnotations(name),
-    ...(hasParams ? { inputSchema: schema } : {}),
-  }, async (params) => {
-    try {
-      const result = await bridge.request(name, (params ?? {}) as Record<string, unknown>, timeoutMs);
-
-      const text = JSON.stringify(result, null, 2);
-
-      // Compute scope at call time so remote status is current
-      const scope = getScope(name, bridge.isRemote);
-
-      // Append scope note to response for mutation/debug tools
-      if (scope) {
-        return {
-          content: [
-            { type: 'text' as const, text },
-            { type: 'text' as const, text: `\n_note: ${scope}` },
-          ],
-        };
-      }
-
-      return {
-        content: [{ type: 'text' as const, text }],
-      };
-    } catch (err) {
-      return {
-        content: [{ type: 'text' as const, text: `Error: ${(err as Error).message}` }],
-        isError: true,
-      };
-    }
-  });
+  tool(ctx, name, mode, description, schema, async (params) => {
+    const result = await ctx.bridge.request(name, params as Record<string, unknown>, options.timeoutMs);
+    const out = textResult(JSON.stringify(result, null, 2));
+    // Separate content block keeps the first one valid JSON
+    const note = resultNote(mode, result, ctx.bridge);
+    if (note) out.content.push({ type: 'text', text: `_note: ${note}` });
+    return out;
+  }, options);
 }

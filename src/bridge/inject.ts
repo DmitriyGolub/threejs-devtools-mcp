@@ -9,7 +9,9 @@ import { sceneTreeHandler, objectDetailsHandler } from './handlers/scene.js';
 import { materialListHandler, materialDetailsHandler } from './handlers/material.js';
 import { shaderSourceHandler, shaderListHandler } from './handlers/shader.js';
 import { textureListHandler, textureDetailsHandler } from './handlers/texture.js';
-import { rendererInfoHandler } from './handlers/renderer.js';
+import { rendererInfoHandler, webAuditHandler } from './handlers/renderer.js';
+import { captureFramesHandler } from './handlers/capture-frames.js';
+import { withChangeTracking, pendingChangesHandler, revertChangesHandler } from './changes.js';
 import { screenshotHandler } from './handlers/screenshot.js';
 import { annotatedScreenshotHandler } from './handlers/annotated-screenshot.js';
 import {
@@ -56,8 +58,12 @@ import { perfMonitorHandler } from './handlers/perf-monitor.js';
 import { clickInspectHandler } from './handlers/click-inspect.js';
 import { sceneExportHandler } from './handlers/scene-export.js';
 import { toggleOverlayHandler, overlaySelectedHandler, autoShowOverlay } from './handlers/overlay/index.js';
+import { batchedMeshDetailsHandler } from './handlers/batched-mesh.js';
+import { clippingDetailsHandler, setClippingHandler } from './handlers/clipping.js';
+import { drawCallBreakdownHandler } from './handlers/draw-calls.js';
+import { setPostprocessingHandler } from './handlers/postprocessing-mutate.js';
 
-const handlers: Record<string, Handler> = {
+const baseHandlers: Record<string, Handler> = {
   scene_tree: sceneTreeHandler,
   object_details: objectDetailsHandler,
   material_list: materialListHandler,
@@ -114,7 +120,33 @@ const handlers: Record<string, Handler> = {
   scene_export: sceneExportHandler,
   toggle_overlay: toggleOverlayHandler,
   overlay_selected: overlaySelectedHandler,
+  batched_mesh_details: batchedMeshDetailsHandler,
+  clipping_details: clippingDetailsHandler,
+  set_clipping: setClippingHandler,
+  draw_call_breakdown: drawCallBreakdownHandler,
+  set_postprocessing: setPostprocessingHandler,
+  web_audit: webAuditHandler,
+  capture_frames: captureFramesHandler,
 };
+
+/** Preview (set_*) handlers are wrapped so every change lands in the journal */
+const handlers: Record<string, Handler> = {
+  ...withChangeTracking(baseHandlers),
+  pending_changes: pendingChangesHandler(),
+  revert_changes: revertChangesHandler(baseHandlers),
+};
+
+/** Run a handler by name against the current scene — shared by the WebSocket bridge and the in-page API */
+async function callHandler(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
+  const handler = handlers[method];
+  if (!handler) throw new Error(`Unknown method: ${method}`);
+  const ctx = discoverThreeJS();
+  if (!ctx) throw new Error('Three.js scene not found in page');
+  if (ctx.scene.children?.length === 0 && method !== 'run_js') {
+    console.warn(`[threejs-devtools-mcp] Scene has 0 children for "${method}" — scene may be stale or not yet loaded`);
+  }
+  return handler(ctx, params);
+}
 
 function startBridge(): void {
   if ((window as any).__THREEJS_DEVTOOLS_BRIDGE__) {
@@ -125,7 +157,6 @@ function startBridge(): void {
 
   const port = (window as any).__THREEJS_DEVTOOLS_PORT__ || 9222;
   let ws: WebSocket | null = null;
-  let ctx: ThreeContext | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let replaced = false; // Set when server tells us another tab took over
   let reconnectAttempts = 0;
@@ -138,8 +169,7 @@ function startBridge(): void {
     ws.onopen = () => {
       reconnectAttempts = 0;
       console.log('[threejs-devtools-mcp] Connected to MCP server');
-      ctx = discoverThreeJS();
-      if (ctx) console.log('[threejs-devtools-mcp] Three.js scene found');
+      if (discoverThreeJS()) console.log('[threejs-devtools-mcp] Three.js scene found');
       else console.warn('[threejs-devtools-mcp] Three.js scene not found yet, will retry on each request');
     };
 
@@ -154,34 +184,10 @@ function startBridge(): void {
         return;
       }
 
-      ctx = discoverThreeJS();
-      if (!ctx) {
-        send({ id: request.id, error: { code: -1, message: 'Three.js scene not found in page' } });
-        return;
-      }
-      if (ctx.scene.children?.length === 0 && request.method !== 'run_js') {
-        console.warn(`[threejs-devtools-mcp] Scene has 0 children for "${request.method}" — scene may be stale or not yet loaded`);
-      }
-
-      const handler = handlers[request.method];
-      if (!handler) {
-        send({ id: request.id, error: { code: -2, message: `Unknown method: ${request.method}` } });
-        return;
-      }
-
-      try {
-        const result = handler(ctx, request.params || {});
-        if (result && typeof (result as any).then === 'function') {
-          (result as Promise<unknown>).then(
-            (res) => send({ id: request.id, result: res }),
-            (err) => send({ id: request.id, error: { code: -3, message: (err as Error).message } }),
-          );
-        } else {
-          send({ id: request.id, result });
-        }
-      } catch (err) {
-        send({ id: request.id, error: { code: -3, message: (err as Error).message } });
-      }
+      callHandler(request.method, request.params || {}).then(
+        (result) => send({ id: request.id, result }),
+        (err) => send({ id: request.id, error: { code: -3, message: (err as Error).message } }),
+      );
     };
 
     ws.onclose = (event) => {
@@ -210,7 +216,8 @@ function startBridge(): void {
     reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, 3000);
   }
 
-  connect();
+  // In-page API only (e.g. Playwright tests without the MCP server)
+  if (!(window as any).__THREEJS_DEVTOOLS_NO_WS__) connect();
 }
 
 // Auto-start: setupCapture immediately (before Three.js loads),
@@ -222,6 +229,12 @@ if (typeof window !== 'undefined') {
     if (!(window as any).__THREEJS_DEVTOOLS_NO_OVERLAY__) {
       setTimeout(() => { autoShowOverlay(ctx); }, 300);
     }
+  };
+
+  // In-page API for Playwright/Puppeteer: page.evaluate(() => __THREEJS_DEVTOOLS_API__.call('scene_tree'))
+  (window as any).__THREEJS_DEVTOOLS_API__ = {
+    call: callHandler,
+    methods: () => Object.keys(handlers),
   };
 
   setupCapture();

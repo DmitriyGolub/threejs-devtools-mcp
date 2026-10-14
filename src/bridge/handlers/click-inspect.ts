@@ -67,7 +67,7 @@ export const clickInspectHandler: Handler = (ctx, params) => {
         point: [+first.point.x.toFixed(3), +first.point.y.toFixed(3), +first.point.z.toFixed(3)],
         distance: +first.distance.toFixed(3),
         faceIndex: first.faceIndex,
-        allHits: hits.slice(0, 5).map(h => ({
+        allHits: hits.slice(0, 5).map((h: any) => ({
           name: h.object.name || h.object.uuid.slice(0, 8),
           type: h.object.type,
           distance: +h.distance.toFixed(3),

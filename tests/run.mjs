@@ -46,6 +46,14 @@ import { testClickInspect } from './test-click-inspect.mjs';
 import { testSceneExport } from './test-scene-export.mjs';
 import { testToggleOverlay, testOverlaySelected } from './test-overlay.mjs';
 import { testAnnotatedScreenshot } from './test-annotated-screenshot.mjs';
+import {
+  testBatchedMeshDetails, testClippingDetails, testSetClipping,
+  testDrawCallBreakdown, testSetPostprocessing,
+} from './test-new-tools.mjs';
+import {
+  testToolModes, testPrompts, testChangeJournal,
+  testRendererBackend, testWebAudit, testCaptureFrames,
+} from './test-changes.mjs';
 
 const serverDir = path.resolve(import.meta.dirname, '..');
 const client = createTestClient(serverDir);
@@ -230,6 +238,41 @@ try {
 
   console.log('\n── Annotated Screenshot ──');
   await testAnnotatedScreenshot(client);
+
+  // ── New tools (v0.4.2) ──
+  console.log('\n── BatchedMesh Details ──');
+  await testBatchedMeshDetails(client);
+
+  console.log('\n── Clipping Details ──');
+  await testClippingDetails(client);
+
+  console.log('\n── Set Clipping ──');
+  await testSetClipping(client);
+
+  console.log('\n── Draw Call Breakdown ──');
+  await testDrawCallBreakdown(client);
+
+  console.log('\n── Set Post-processing ──');
+  await testSetPostprocessing(client);
+
+  // ── v0.5.0: modes, skills, change journal, web/video ──
+  console.log('\n── Tool Modes ──');
+  await testToolModes(client);
+
+  console.log('\n── Prompts ──');
+  await testPrompts(client);
+
+  console.log('\n── Change Journal ──');
+  await testChangeJournal(client);
+
+  console.log('\n── Renderer Backend ──');
+  await testRendererBackend(client);
+
+  console.log('\n── Web Audit ──');
+  await testWebAudit(client);
+
+  console.log('\n── Capture Frames ──');
+  await testCaptureFrames(client);
 
   // ── Config (last, may change port) ──
   console.log('\n── Config ──');

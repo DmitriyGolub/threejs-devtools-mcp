@@ -210,40 +210,16 @@ async function runTransformTest(client, target) {
 // ── set_light ────────────────────────────────────────────
 
 export async function testSetLight(client) {
-  // Find lights via scene_tree
-  const treeResp = await client.callTool('scene_tree', { depth: 1, types: ['DirectionalLight', 'AmbientLight', 'HemisphereLight', 'PointLight'] });
-  const tree = toolOk('scene_tree (lights)', treeResp);
+  // Find any light in the full JSON tree
+  const tree = toolOk('scene_tree (lights)', await client.callTool('scene_tree', { compact: false, depth: 5 }));
+  const light = tree ? findNode(tree, n => n.type?.endsWith('Light') && n.name) : null;
 
-  // Try to find any light by name
-  const lightNames = ['sunLight', 'rimLight', 'ambientLight', 'hemisphereLight'];
-  let foundLight = null;
-
-  for (const name of lightNames) {
-    const resp = await client.callTool('set_light', {
-      name,
-      intensity: 0.5,
-    });
-    const result = toolOk(`set_light (${name})`, resp);
-    if (result?.success) {
-      foundLight = name;
-      ok('light intensity set', result.intensity === 0.5, `${name}: ${result.intensity}`);
-      break;
-    }
-  }
-
-  if (!foundLight) {
-    // Try via UUID from tree
-    const light = tree?.children?.find(c => c.type?.includes('Light'));
-    if (light) {
-      const resp = await client.callTool('set_light', {
-        uuid: light.uuid,
-        intensity: 0.5,
-      });
-      const result = toolOk('set_light (by uuid)', resp);
-      if (result) ok('light intensity set', result.success === true);
-    } else {
-      ok('set_light: found light', false, 'no lights in scene');
-    }
+  if (light) {
+    const resp = await client.callTool('set_light', { name: light.name, intensity: 0.5 });
+    const result = toolOk(`set_light (${light.name || light.type})`, resp);
+    if (result) ok('light intensity set', result.success === true && result.intensity === 0.5, `${result.intensity}`);
+  } else {
+    ok('set_light: found light', false, 'no lights in scene');
   }
 
   // Test non-light rejection
