@@ -1,135 +1,167 @@
 # Tools Reference — threejs-devtools-mcp
 
-64 tools for inspecting, debugging, and modifying Three.js scenes.
+69 tools. Every tool belongs to exactly **one mode**, and the AI client sees that mode as a label at the start of the tool's description:
 
-## Scene inspection
+| Mode | Label | What it does | Saved? |
+|---|---|---|---|
+| Inspect | `[INSPECT]` | Reads the scene. Changes nothing. | — |
+| Live preview | `[LIVE PREVIEW]` | Changes the scene **in the browser only**. Recorded in `pending_changes`. | No, lost on reload |
+| Debug visual | `[DEBUG VISUAL]` | Temporary helpers: wireframe, boxes, overlay. | No, never needed in code |
+| For code | `[FOR CODE]` | Output meant to be written into your source files. | Yes, once the agent writes it |
+| Connection | `[CONNECTION]` | Configures the devtools server itself. | — |
 
-| Tool | Description |
-|------|-------------|
-| `scene_tree` | Scene hierarchy — **compact text by default** (~2KB vs ~60KB JSON). Use `compact=false` for full JSON with positions/geometry. |
-| `object_details` | Detailed info about a specific object by name, uuid, or path |
-| `find_objects` | **Search** objects by type, material, visibility, name pattern, or custom property |
-| `camera_details` | Camera properties and projection matrix |
-| `fog_details` | Scene fog settings |
-| `layer_details` | Object layer membership |
-| `skeleton_details` | Skeleton/bone hierarchy for skinned meshes |
-| `env_map_details` | Environment maps: scene.environment, scene.background, per-material envMap, IBL settings |
-| `scene_background` | Scene background and environment settings |
+> **Look now vs. change the code.** Live-preview tools never touch your files. To keep a preview, the agent calls `pending_changes`, which returns each change as before → after with ready-to-paste code for vanilla Three.js and React Three Fiber. The agent then edits your source. `revert_changes` undoes previews in the browser.
 
-## Materials & textures
+## Inspect — read-only
+
+### Scene
 
 | Tool | Description |
 |------|-------------|
-| `material_list` | List all materials in the scene |
-| `material_details` | Full material properties (color, map, uniforms, etc.) |
-| `texture_list` | List all textures |
-| `texture_details` | Texture info (size, format, wrapping, filtering) |
-| `texture_preview` | Preview a texture as a PNG image |
+| `scene_tree` | Scene hierarchy. **Compact text by default** (~2KB vs ~60KB JSON); `compact=false` for full JSON |
+| `object_details` | One object by name, uuid, or dot path |
+| `find_objects` | Search by type, material, visibility, name regex, custom property |
+| `raycast` | Hit objects under a screen coordinate |
+| `click_inspect` | Crosshair cursor; the user clicks an object, you get its details |
+| `scene_diff` | Snapshot, then diff: added/removed/modified objects |
+| `layer_details` | Camera layer mask and objects on non-default layers |
+| `overlay_selected` | Everything about the object selected in the in-browser overlay |
 
-## Shaders
-
-| Tool | Description |
-|------|-------------|
-| `shader_list` | List all compiled shader programs |
-| `shader_source` | Get vertex/fragment shader source code and uniforms |
-
-## Geometry & instances
+### Materials, shaders, textures
 
 | Tool | Description |
 |------|-------------|
-| `geometry_details` | Geometry attributes, vertex count, bounding box |
-| `instanced_mesh_details` | InstancedMesh instance data (transforms, colors, count) |
-| `batched_mesh_details` | **BatchedMesh** inspection: geometry counts, draw ranges, instance visibility, shared buffer stats |
-| `morph_targets` | Morph target names and weights |
+| `material_list` | All materials |
+| `material_details` | Colors, PBR + **MeshPhysical** params (clearcoat, transmission, sheen, iridescence…), maps, uniforms, **NodeMaterial/TSL slots** |
+| `shader_list` | Compiled programs (WebGL) |
+| `shader_source` | GLSL source + uniforms. NodeMaterial/TSL: explains where to edit instead |
+| `texture_list` / `texture_details` | Size, format, wrap, filter |
+| `texture_preview` | The texture as an image |
 
-## Animation
-
-| Tool | Description |
-|------|-------------|
-| `animation_details` | Animation clips, mixer state, actions |
-| `set_animation` | Play/pause/stop animations, set time/weight |
-
-## Performance & memory
+### Lighting & environment
 
 | Tool | Description |
 |------|-------------|
-| `renderer_info` | WebGL stats: draw calls, triangles, geometries, textures, memory |
-| `renderer_settings` | Renderer configuration (tone mapping, shadows, pixel ratio) |
-| `performance_snapshot` | FPS, frame time, memory usage snapshot |
-| `perf_monitor` | **Record FPS/frame times** over N seconds — avg/min/max, p50/p95/p99, spike/jank detection |
-| `memory_stats` | **GPU memory analysis**: geometry buffers, texture VRAM, instance data, top textures by size |
-| `draw_call_breakdown` | **Per-object cost analysis**: which objects contribute most draw calls/triangles, sorted by cost |
-| `dispose_check` | **Leak detection**: orphaned geometries/textures not in scene but tracked by renderer |
+| `shadow_details` | Shadow maps, bias, shadow camera, casters/receivers |
+| `scene_background` / `env_map_details` | Background, environment (IBL), per-material envMap |
+| `fog_details` | Fog / FogExp2 |
 
-## Post-processing
+### Camera, renderer, post-processing
 
 | Tool | Description |
 |------|-------------|
-| `postprocessing_list` | List EffectComposer passes: render passes, shader passes, effects (bloom, SSAO, etc.) |
-| `set_postprocessing` | **Modify post-processing**: enable/disable passes, change uniforms, adjust effect parameters |
+| `camera_details` | Active camera |
+| `renderer_info` | Draw calls, triangles, memory, **backend (`webgl` / `webgpu`)** |
+| `renderer_settings` | Tone mapping, exposure, color space, shadow map, pixel ratio |
+| `clipping_details` | Global, per-material, and ClippingGroup planes |
+| `postprocessing_list` | EffectComposer passes and effects |
 
-## Debugging & visualization
-
-| Tool | Description |
-|------|-------------|
-| `highlight_object` | Visually highlight an object with a colored wireframe |
-| `toggle_wireframe` | **Wireframe mode** on all materials or a specific object |
-| `bounding_boxes` | **Show/hide AABB** for objects — debug frustum culling and bounds |
-| `add_helper` | Add a visual helper (box, axes, skeleton, arrow, grid, polar_grid, camera, light) |
-| `remove_helper` | Remove a previously added helper |
-| `scene_diff` | **Compare scene state** over time — track added/removed/modified objects |
-| `raycast` | Cast a ray and return intersected objects |
-| `click_inspect` | **Click-to-inspect** — crosshair cursor, click any object to get full details |
-| `console_capture` | Capture browser console output (logs, warnings, errors) |
-| `run_js` | Execute arbitrary JavaScript with access to scene, renderer, camera |
-
-## Screenshots & export
+### Geometry & animation
 
 | Tool | Description |
 |------|-------------|
-| `take_screenshot` | Capture a screenshot (saved as PNG to screenshots/) |
-| `annotated_screenshot` | **Smart labeled screenshot** — auto-labels objects with type tags, groups duplicates (×N), spreads clustered labels |
-| `scene_export` | Export scene or specific objects as GLB |
-| `gltf_to_r3f` | Convert a **GLB/GLTF file to a React Three Fiber component** (like gltfjsx). Generates TypeScript with useGLTF, useAnimations, morph targets, skinned meshes. |
+| `geometry_details` | Attributes, index, bounds, morph attributes |
+| `instanced_mesh_details` / `batched_mesh_details` | Instancing data |
+| `morph_targets` / `skeleton_details` | Morphs and bones |
+| `animation_details` | Mixers, actions, clips, weights |
 
-## In-browser overlay
-
-| Tool | Description |
-|------|-------------|
-| `toggle_overlay` | Toggle the **in-browser devtools panel** — live FPS, draw calls, scene graph, material editor, light inspector |
-| `overlay_selected` | Get comprehensive details of the currently selected object in the overlay |
-
-## Modification
+### Performance & websites
 
 | Tool | Description |
 |------|-------------|
-| `set_object_transform` | Set position, rotation, or scale |
-| `set_material_property` | Change material properties (color, opacity, wireframe, etc.) — accepts material name or object name |
-| `set_texture` | Swap or modify textures (wrap, filter, anisotropy, repeat, offset) |
-| `set_uniform` | Set shader uniform values |
-| `set_light` | Adjust light intensity, color, shadow settings |
-| `set_camera` | Modify camera properties (FOV, position, clipping planes, zoom) |
-| `set_fog` | Modify scene fog |
-| `set_renderer` | Change renderer settings (tone mapping, exposure, color space) |
-| `set_shadow` | Configure shadow map settings (bias, map size, camera frustum) |
-| `set_layers` | Change object layer membership |
-| `set_morph_target` | Set morph target weights |
-| `set_instanced_mesh` | Modify InstancedMesh properties (count, visibility, frustum culling) |
-| `set_clipping` | **Modify clipping planes** on renderer or material (add/remove planes, toggle) |
+| `web_audit` | **Website health check**: pixel ratio, canvas resize, idle/off-screen rendering, antialias cost, oversized/uncompressed textures, shadow cost, color space, draw calls. Every finding includes a fix |
+| `perf_monitor` | Record FPS for N seconds: avg/min/max, p50/p95/p99, jank |
+| `performance_snapshot` | Draw calls, triangles, objects by type |
+| `draw_call_breakdown` | Most expensive objects first |
+| `memory_stats` | GPU memory by geometry/texture |
+| `dispose_check` | Leak detection |
+| `console_capture` | Browser console log/warn/error |
 
-## Clipping planes
+### Screenshots, video, export
 
 | Tool | Description |
 |------|-------------|
-| `clipping_details` | Inspect clipping planes: renderer global, per-material, ClippingGroup objects |
-| `set_clipping` | Add/remove clipping planes on renderer or material |
+| `take_screenshot` | PNG of the scene |
+| `annotated_screenshot` | Screenshot with object labels |
+| `capture_frames` | **Frame sequence for videos.** Time is virtualised, so frames are exactly 1/fps apart and smooth however slowly they render. Returns `ffmpeg` commands for MP4 and WebM |
+| `scene_export` | GLB/glTF export |
+
+## Live preview — browser only, not saved
+
+All of these are recorded in the change journal. `pending_changes` turns them into code, and `revert_changes` undoes them.
+
+| Tool | Changes |
+|------|---------|
+| `set_object_transform` | position, rotation, scale, visible |
+| `set_material_property` | color, emissive, roughness, metalness, opacity, physical params… (by material **or** mesh name) |
+| `set_uniform` | ShaderMaterial uniforms |
+| `set_texture` | wrap, filter, anisotropy, repeat, offset, rotation, colorSpace |
+| `set_light` | color, intensity, position, castShadow |
+| `set_shadow` | cast/receive, bias, mapSize, shadow camera |
+| `set_fog` | fog color/near/far/density, background color |
+| `set_camera` | position, rotation, fov, near/far, zoom |
+| `set_renderer` | toneMapping, exposure, color space, pixel ratio, shadows |
+| `set_clipping` | renderer or material clipping planes |
+| `set_postprocessing` | pass enabled, uniforms, effect params |
+| `set_instanced_mesh` | count, visible, frustumCulled |
+| `set_morph_target` | morph influence |
+| `set_animation` | timeScale, play/stop/pause, weight |
+| `set_layers` | object/camera layers |
+| `revert_changes` | Undo previews (all, or by id) |
+
+## Debug visual — temporary, never in code
+
+| Tool | Description |
+|------|-------------|
+| `toggle_overlay` | In-browser inspector panel |
+| `highlight_object` | Point an object out (wireframe/visibility) |
+| `toggle_wireframe` | Wireframe on everything or one object |
+| `bounding_boxes` | Show bounds |
+| `add_helper` / `remove_helper` | Axes, grid, light/camera/skeleton helpers… |
+| `run_js` | Run JS in the page. *Not* recorded in the change journal; prefer `set_*` for anything you may keep |
+
+## For code
+
+| Tool | Description |
+|------|-------------|
+| `pending_changes` | All preview changes as before → after + code (`style`: `vanilla`, `r3f`, `both`); `clear=true` after writing them to the source |
+| `gltf_to_r3f` | GLB/glTF → React Three Fiber component (like gltfjsx) |
+
+Example output of `pending_changes`:
+
+````md
+## Material "CarPaint" (MeshPhysicalMaterial) — used by Scene.Car.Body
+```js
+const material = scene.getObjectByName('Body').material;
+material.color.set('#ff0000');
+```
+```jsx
+<meshPhysicalMaterial color="#ff0000" />
+```
+- #1 color: "#3366ff" → "#ff0000"
+````
 
 ## Connection
 
 | Tool | Description |
 |------|-------------|
-| `bridge_status` | Check if the bridge is connected and proxy status |
-| `set_dev_port` | Change the proxied dev server port |
+| `bridge_status` | Connection state, proxy target, and how to attach Playwright to the same browser |
+| `set_dev_port` | Point the proxy at another local port |
+| `set_dev_url` | Inspect a remote app by URL (previews only: no source code) |
+
+## Skills (MCP prompts)
+
+Ready-made workflows. Clients show them as slash commands, e.g. `/threejs-devtools-mcp:web-perf-audit` in Claude Code.
+
+| Prompt | What it does |
+|---|---|
+| `inspect-scene` | Overview plus the top 3 problems. Looks only |
+| `try-look` | Try an idea live; nothing is written to code |
+| `apply-to-code` | Write the previewed changes into your source |
+| `web-perf-audit` | Website performance audit with prioritised fixes |
+| `prepare-video` | Check the scene for video artefacts and record frames |
+| `debug-invisible` | Checklist for "why can't I see X" |
+| `playwright-setup` | Connect Playwright (MCP or tests) to the scene |
 
 ## Key parameters
 
@@ -137,41 +169,30 @@
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `compact` | `true` | Compact text tree. Set `false` for full JSON. |
+| `compact` | `true` | Compact text tree. `false` for full JSON |
 | `depth` | `3` | Max tree depth |
 | `maxChildren` | `15` (compact) / `100` (JSON) | Max children per node |
-| `types` | all | Filter by type: `Mesh`, `Light`, `Group`, etc. |
+| `types` | all | Filter by type: `Mesh`, `Light`, `Group`, … |
 
-### `find_objects`
+### `capture_frames`
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `type` | — | Object type: `Mesh`, `InstancedMesh`, `Light`, etc. |
-| `material` | — | Material name or type |
-| `visible` | — | Filter by visibility |
-| `namePattern` | — | Regex pattern to match names |
-| `property` | — | Custom property name to check |
-| `value` | — | Expected value for the property |
-| `hasGeometry` | — | Objects with/without geometry |
-| `limit` | `50` | Max results (max: 200) |
+| `fps` | `30` | Frames per second |
+| `duration` | `3` | Seconds (max 1800 frames) |
+| `format` | `png` | `png` lossless or `jpeg` smaller |
+| `width` / `height` | canvas | Output size |
 
 ### `perf_monitor`
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `duration` | `3` | Recording duration in seconds |
-| `raw` | `false` | Include raw frame times array |
+| `duration` | `3` | Seconds (max 30) |
+| `includeFrameTimes` | `false` | Include raw frame times |
 
-### `scene_diff`
-
-| Param | Default | Description |
-|-------|---------|-------------|
-| `action` | `auto` | `snapshot` = save state, `diff` = compare with saved, `auto` = snapshot if none, diff if exists |
-
-### `gltf_to_r3f`
+### `pending_changes`
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `filePath` | — | Path to .glb or .gltf file |
-| `typescript` | `true` | Generate TypeScript |
-| `preload` | `true` | Add `useGLTF.preload()` call |
+| `style` | `both` | `vanilla`, `r3f` or `both` |
+| `clear` | `false` | Forget the listed changes once they are in code |

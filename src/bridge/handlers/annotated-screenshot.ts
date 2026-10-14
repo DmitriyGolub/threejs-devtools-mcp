@@ -9,7 +9,7 @@ export const annotatedScreenshotHandler: Handler = (ctx, params) => {
 
   let cam = ctx.camera;
   if (!cam) ctx.scene.traverse((o: any) => { if (!cam && o.isCamera) cam = o; });
-  if (!cam) return { error: 'No camera found' };
+  if (!cam) throw new Error('No camera found');
   r.render(ctx.scene, cam);
 
   const V3 = (ctx.scene.position as any).constructor;

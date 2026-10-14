@@ -36,7 +36,7 @@ export function setupCapture(): void {
     const obj = event.detail;
     if (!obj) return;
     if (obj.isScene) { setCapturedScene(obj); tryExtractFromR3fRoot(obj); }
-    if (obj.isWebGLRenderer || obj.domElement instanceof HTMLCanvasElement) {
+    if (obj.isWebGLRenderer || obj.isWebGPURenderer || obj.domElement instanceof HTMLCanvasElement) {
       setCapturedRenderer(obj);
       tryCaptureThreeModule(obj);
       interceptRender(obj);
@@ -105,13 +105,19 @@ function interceptRender(r: any): void {
   r.__tdt_rp = true;
 }
 
-/** Notify overlay auto-show callback when scene is first discovered */
+/**
+ * Called once when scene + renderer are first discovered.
+ * Sets `window.__THREEJS_DEVTOOLS_READY__` and fires `threejs-devtools:ready`
+ * so test runners (Playwright/Puppeteer) can wait for the scene.
+ */
 let _notified = false;
 export function notifySceneReady(): void {
   if (_notified) return;
   const { scene, renderer, camera } = getCaptured();
   if (!scene || !renderer) return;
   _notified = true;
+  (window as any).__THREEJS_DEVTOOLS_READY__ = true;
+  window.dispatchEvent(new Event('threejs-devtools:ready'));
   const cb = (window as any).__tdt_onSceneReady;
   if (typeof cb === 'function') {
     const ctx: ThreeContext = {

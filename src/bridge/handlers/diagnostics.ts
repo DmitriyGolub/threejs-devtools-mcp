@@ -4,7 +4,7 @@
  */
 import type { Handler } from '../types.js';
 import { serializeVector3 } from '../serializers/vector.js';
-import { collectMaterials, collectTextures } from '../traversal.js';
+import { collectMaterials, collectTextures, MAP_SLOTS } from '../traversal.js';
 import { readColorHex } from './color-utils.js';
 import { getThreeModule } from '../discovery/index.js';
 
@@ -238,10 +238,7 @@ export const disposeCheckHandler: Handler = (ctx) => {
       for (const mat of mats) {
         sceneMaterials.add(mat.uuid);
         // Check texture slots
-        const slots = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap',
-          'emissiveMap', 'displacementMap', 'alphaMap', 'envMap', 'lightMap',
-          'bumpMap', 'specularMap', 'gradientMap'];
-        for (const slot of slots) {
+        for (const slot of MAP_SLOTS) {
           if (mat[slot]?.isTexture) sceneTextures.add(mat[slot].uuid);
         }
         // Shader uniforms

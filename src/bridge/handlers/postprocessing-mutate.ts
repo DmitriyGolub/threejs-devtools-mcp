@@ -143,7 +143,7 @@ export const setPostprocessingHandler: Handler = (ctx, params) => {
   return result;
 };
 
-function findComposer(ctx: any): any {
+export function findComposer(ctx: any): any {
   // Strategy 1: R3F effectComposer
   const canvases = document.querySelectorAll('canvas');
   for (const canvas of canvases) {

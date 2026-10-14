@@ -1,8 +1,8 @@
 {
   "name": "threejs-devtools-mcp",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "mcpName": "io.github.DmitriyGolub/threejs-devtools",
-  "description": "Three.js MCP server — inspect and edit scenes, materials, shaders, lights in real time from any AI agent",
+  "description": "Three.js MCP server — inspect scenes, live-preview tweaks and turn them into code. Website audits, video frame capture, Playwright helpers.",
   "author": "DmitriyGolub",
   "repository": {
     "type": "git",
@@ -15,35 +15,46 @@
     "threejs-devtools-mcp-http": "./dist/http.js"
   },
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./playwright": {
+      "types": "./dist/playwright.d.ts",
+      "import": "./dist/playwright.js"
+    }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsc -p tsconfig.types.json",
     "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
     "test": "node tests/run.mjs",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "puppeteer-core": "^24.39.1",
-    "ws": "^8.18.0",
-    "zod": "^3.24.0"
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "puppeteer-core": "^25.14.0",
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/ws": "^8.5.0",
-    "tsup": "^8.4.0",
-    "typescript": "^5.7.0"
+    "@types/node": "^24.19.2",
+    "@types/ws": "^8.18.2",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2"
   },
   "keywords": [
     "mcp",
     "threejs",
     "three.js",
     "devtools",
-    "debugging"
+    "debugging",
+    "react-three-fiber",
+    "webgpu",
+    "playwright"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  }
 }

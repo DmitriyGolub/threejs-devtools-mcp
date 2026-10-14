@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'tsup';
+
+const { version } = JSON.parse(readFileSync('package.json', 'utf-8'));
+const define = { __PACKAGE_VERSION__: JSON.stringify(version) };
 
 export default defineConfig([
   // Main MCP server entry point (stdio transport)
@@ -10,7 +14,7 @@ export default defineConfig([
     outDir: 'dist',
     clean: true,
     sourcemap: true,
-    dts: true,
+    define,
     banner: {
       js: '#!/usr/bin/env node',
     },
@@ -23,9 +27,19 @@ export default defineConfig([
     platform: 'node',
     outDir: 'dist',
     sourcemap: true,
+    define,
     banner: {
       js: '#!/usr/bin/env node',
     },
+  },
+  // Playwright / Puppeteer helpers — import from 'threejs-devtools-mcp/playwright'
+  {
+    entry: ['src/playwright.ts'],
+    format: ['esm'],
+    target: 'node22',
+    platform: 'node',
+    outDir: 'dist',
+    sourcemap: true,
   },
   // Browser bridge script — bundled as IIFE, zero dependencies
   {

@@ -46,6 +46,13 @@ export interface LaunchResult {
   close?: () => Promise<void>;
 }
 
+let cdpEndpoint: string | null = null;
+
+/** CDP endpoint of the browser we launched (set with CDP_PORT) — lets Playwright attach to it */
+export function getCdpEndpoint(): string | null {
+  return cdpEndpoint;
+}
+
 /**
  * Launch a browser pointing to the proxy URL.
  *
@@ -55,6 +62,8 @@ export interface LaunchResult {
  * 3. Default → open in system browser
  *
  * Set HEADLESS=true for headless mode (puppeteer only).
+ * Set CDP_PORT to expose Chrome DevTools Protocol, e.g. for Playwright MCP:
+ *   npx @playwright/mcp --cdp-endpoint http://localhost:<CDP_PORT>
  * Set CHROME_PATH to use a specific browser executable.
  */
 export async function launchBrowser(
@@ -67,7 +76,8 @@ export async function launchBrowser(
     return { method: 'none' };
   }
 
-  const usePuppeteer = process.env.PUPPETEER === 'true' || options.headless;
+  const cdpPort = Number(process.env.CDP_PORT) || 0;
+  const usePuppeteer = process.env.PUPPETEER === 'true' || options.headless || cdpPort > 0;
 
   if (usePuppeteer) {
     const chromePath = findChromePath();
@@ -81,6 +91,9 @@ export async function launchBrowser(
             '--no-first-run',
             '--no-default-browser-check',
             '--window-size=1280,800',
+            ...(cdpPort ? [`--remote-debugging-port=${cdpPort}`] : []),
+            // Headless Chrome has no GPU: software WebGL so Three.js still renders (CI)
+            ...(options.headless ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : []),
           ],
           defaultViewport: null,
         });
@@ -89,7 +102,9 @@ export async function launchBrowser(
         const page = pages[0] || await browser.newPage();
         await page.goto(url, { waitUntil: 'domcontentloaded' });
 
-        console.error(`[threejs-devtools] Browser launched via puppeteer (${options.headless ? 'headless' : 'headed'})`);
+        if (cdpPort) cdpEndpoint = `http://localhost:${cdpPort}`;
+        console.error(`[threejs-devtools] Browser launched via puppeteer (${options.headless ? 'headless' : 'headed'})`
+          + (cdpEndpoint ? `, CDP at ${cdpEndpoint}` : ''));
         return {
           method: 'puppeteer',
           close: async () => { try { await browser.close(); } catch { /* ignore */ } },
