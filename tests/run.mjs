@@ -14,6 +14,7 @@ import path from 'node:path';
 import { createTestClient } from './mcp-client.mjs';
 import { summary } from './test-runner.mjs';
 import { testInitialize } from './test-initialize.mjs';
+import { testLazyMode } from './test-lazy.mjs';
 import { testBridgeStatus } from './test-bridge.mjs';
 import { testSceneTree, testMaterialList, testRendererInfo, testShaderList, testTextureList } from './test-scene.mjs';
 import { testScreenshot } from './test-screenshot.mjs';
@@ -61,6 +62,10 @@ const client = createTestClient(serverDir);
 try {
   console.log('\n── Initialize ──');
   await testInitialize(client);
+
+  // Independent spawn: verifies lazy startup with a browser-free server
+  console.log('\n── Lazy startup ──');
+  await testLazyMode();
 
   console.log('\n── Waiting for bridge (3s) ──');
   await new Promise(r => setTimeout(r, 3000));

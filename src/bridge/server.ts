@@ -5,6 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BridgeRequest, BridgeResponse } from '../types/scene.js';
 import { proxyRequest, proxyUpgrade } from './proxy.js';
+import { findFreePort } from '../find-port.js';
+import { detectDevPort } from '../detect-port.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,9 +46,18 @@ function targetToString(t: ProxyTarget): string {
   return `${t.protocol}://${t.hostname}${portSuffix}`;
 }
 
+export interface BridgeServerOptions {
+  /**
+   * Don't create the HTTP/WS server (and don't fire `onReady`) in the
+   * constructor. The bridge starts on the first `request()` instead —
+   * used by LAZY mode so idle sessions don't open ports or browsers.
+   */
+  deferStart?: boolean;
+}
+
 export class BridgeServer {
-  private wss: WebSocketServer;
-  private httpServer: http.Server;
+  private wss!: WebSocketServer;
+  private httpServer!: http.Server;
   private client: WebSocket | null = null;
   private pendingRequests = new Map<string, {
     resolve: (value: unknown) => void;
@@ -57,6 +68,8 @@ export class BridgeServer {
   private _target: ProxyTarget;
   private _onReady?: () => void;
   private _replacedCount = 0;
+  private _deferred: boolean;
+  private startPromise: Promise<void> | null = null;
 
   get target(): ProxyTarget { return this._target; }
   get devPort(): number { return this._target.port; }
@@ -65,6 +78,8 @@ export class BridgeServer {
   get isRemote(): boolean { return isRemoteTarget(this._target); }
   get targetUrl(): string { return targetToString(this._target); }
   get replacedCount(): number { return this._replacedCount; }
+  /** Whether the HTTP/WS server exists — false in deferStart mode until first use. */
+  get started(): boolean { return this.startPromise !== null; }
 
   setDevPort(newPort: number): void {
     this._target = { hostname: 'localhost', port: newPort, protocol: 'http' };
@@ -77,13 +92,73 @@ export class BridgeServer {
     console.error(`[threejs-devtools-mcp] Target changed to ${this.targetUrl}${remote ? ' (remote — visual changes only)' : ''}`);
   }
 
-  constructor(private port: number = 9222, devPortOrUrl: number | string = 3000) {
+  constructor(private port: number = 9222, devPortOrUrl: number | string = 3000, options: BridgeServerOptions = {}) {
     if (typeof devPortOrUrl === 'string') {
       this._target = parseTargetUrl(devPortOrUrl);
     } else {
       this._target = { hostname: 'localhost', port: devPortOrUrl, protocol: 'http' };
     }
+    this._deferred = options.deferStart === true;
+    if (!this._deferred) this.buildServer();
+  }
 
+  /**
+   * Create the HTTP/WS server and start listening. Idempotent.
+   * In deferStart mode this runs on the first `request()` instead of
+   * in the constructor; the "sentinel" target `port === 0` makes the
+   * boot re-detect the dev port (it wasn't scanned at process start).
+   * Retries with a fresh port if another process grabbed it meanwhile.
+   */
+  async ensureStarted(): Promise<void> {
+    if (this.startPromise) return this.startPromise;
+    this.startPromise = (async () => {
+      if (this._deferred && this._target.port === 0) {
+        const detected = await detectDevPort();
+        this._target = { hostname: 'localhost', port: detected, protocol: 'http' };
+      }
+      const maxAttempts = 5;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          if (!this.httpServer) this.buildServer();
+          await this.waitForListen();
+          return;
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException)?.code === 'EADDRINUSE' && attempt < maxAttempts - 1) {
+            if (this.httpServer && this.httpServer.listening !== true) this.teardownServer();
+            this.port = await findFreePort(this.port + 1);
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw new Error('[threejs-devtools-mcp] Could not find a free port for the devtools bridge');
+    })();
+    return this.startPromise;
+  }
+
+  private waitForListen(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const srv = this.httpServer;
+      const onListening = () => { srv.off('error', onError); resolve(); };
+      const onError = (err: Error) => { srv.off('listening', onListening); reject(err); };
+      if (srv.listening) { resolve(); return; }
+      srv.once('listening', onListening);
+      srv.once('error', onError);
+    });
+  }
+
+  private teardownServer(): void {
+    if (this.httpServer) {
+      try { this.httpServer.close(); } catch { /* not listening */ }
+    }
+    if (this.wss) {
+      try { this.wss.close(); } catch { /* ignore */ }
+    }
+    this.wss = undefined!;
+    this.httpServer = undefined!;
+  }
+
+  private buildServer(): void {
     this.httpServer = http.createServer((req, res) => {
       const url = req.url || '/';
       if (url === '/bridge.js' || url === '/inject.js') { this.serveBridgeScript(res); return; }
@@ -124,6 +199,7 @@ export class BridgeServer {
   }
 
   async request(method: string, params: Record<string, unknown> = {}, timeoutMs = 10000): Promise<unknown> {
+    await this.ensureStarted();
     if (!this.connected) {
       throw new Error(
         `No Three.js app connected.\nOpen http://localhost:${this.port} in your browser.\nIf the page is already open, try a hard refresh (Ctrl+Shift+R) to reload the bridge script. Multiple open tabs can also cause issues — keep only one tab on the proxy URL.`
@@ -150,10 +226,11 @@ export class BridgeServer {
 
   /** Check if bridge can reconnect (it will auto-reconnect from browser side). */
   get bridgeReady(): boolean {
-    return this.wss.clients.size > 0;
+    return this.startPromise !== null && this.wss.clients.size > 0;
   }
 
   close(): void {
+    if (!this.startPromise) return; // deferred and never used — nothing to shut down
     this.rejectAll('Server shutting down');
     this.client?.close();
     this.wss.close();

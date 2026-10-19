@@ -124,6 +124,8 @@ Start your Three.js dev server as usual (`npm run dev`). The MCP server auto-det
 
 > **Keep the browser tab open.** The MCP server talks to your scene through a WebSocket bridge. Close the tab = tools stop working.
 
+> Running multiple agent sessions? `LAZY=true` defers the proxy and browser until the first tool call — see [Advanced setup](docs/advanced.md#lazy-startup).
+
 ### 3. Ask the AI about your scene
 
 ```

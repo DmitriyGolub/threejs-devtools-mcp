@@ -60,6 +60,7 @@ All settings are optional. The defaults work out of the box.
 | `HEADLESS` | `false` | Set to `true` for headless Chrome (implies PUPPETEER=true, adds software-WebGL flags for CI) |
 | `CDP_PORT` | — | Launch Chrome with remote debugging on this port so Playwright MCP can share the browser (implies PUPPETEER=true) |
 | `CHROME_PATH` | auto-detected | Path to Chrome/Edge/Chromium executable |
+| `LAZY` | eager | Set to `true` to defer the proxy, dev-port detection and browser launch until the first tool call |
 
 Example — custom dev port, no browser auto-open:
 
@@ -77,6 +78,24 @@ Example — custom dev port, no browser auto-open:
   }
 }
 ```
+
+### Lazy startup
+
+MCP hosts connect stdio servers as soon as a session starts — often one connection per project/directory. With eager startup, every idle session grabs a port and auto-opens a browser tab, even one that never touches a Three.js project. `LAZY=true` defers the proxy, port detection and browser launch until the first tool call that needs the bridge:
+
+```json
+{
+  "mcpServers": {
+    "threejs-devtools-mcp": {
+      "command": "npx",
+      "args": ["-y", "threejs-devtools-mcp"],
+      "env": { "LAZY": "true" }
+    }
+  }
+}
+```
+
+`tools/list` works normally in lazy mode (the agent sees all 69 tools at connect). `set_dev_port` / `set_dev_url` / `bridge_status` also work before the bridge starts. The bridge (and the browser tab, if enabled) boots on the first tool call that hits it — with an explicitly configured port or URL, detection is skipped entirely.
 
 ## Transports
 
