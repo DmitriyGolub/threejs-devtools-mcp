@@ -4,17 +4,22 @@
 import { spawn } from 'child_process';
 import path from 'node:path';
 
-export function createTestClient(serverDir) {
+export function createTestClient(serverDir, env = {}) {
   const proc = spawn('node', ['dist/index.js'], {
     stdio: ['pipe', 'pipe', 'pipe'],
     cwd: serverDir,
+    env: { ...process.env, ...env },
   });
 
   let stdout = '';
+  let stderr = '';
   const responses = new Map();
   let resolveWaiter = null;
 
-  proc.stderr.on('data', (d) => process.stderr.write(d));
+  proc.stderr.on('data', (d) => {
+    stderr += d.toString();
+    process.stderr.write(d);
+  });
 
   proc.stdout.on('data', (d) => {
     stdout += d.toString();
@@ -63,7 +68,15 @@ export function createTestClient(serverDir) {
     return waitFor(id);
   }
 
+  async function listTools() {
+    const id = nextId++;
+    send({ jsonrpc: '2.0', id, method: 'tools/list', params: {} });
+    return waitFor(id);
+  }
+
+  const clientLog = { getStderr: () => stderr };
+
   function kill() { proc.kill(); }
 
-  return { initialize, callTool, kill, send, waitFor };
+  return { initialize, callTool, listTools, log: clientLog, kill, send, waitFor };
 }
