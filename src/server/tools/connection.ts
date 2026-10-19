@@ -18,8 +18,14 @@ export function registerConnectionTools(ctx: ToolContext): void {
     async () => {
       const lines = [
         `Bridge: ${bridge.connected ? 'connected' : 'NOT connected'}`,
-        `Proxy: ${proxyUrl()} → ${bridge.targetUrl}`,
       ];
+      if (bridge.started && bridge.devPort !== 0) {
+        lines.push(`Proxy: ${proxyUrl()} → ${bridge.targetUrl}`);
+      } else {
+        lines.push(
+          `Proxy: not started${bridge.proxyPort ? ` (will be http://localhost:${bridge.proxyPort})` : ''} — it starts on the first tool call that needs the bridge`,
+        );
+      }
       if (bridge.isRemote) lines.push('', ...REMOTE_NOTE);
 
       lines.push('', bridge.connected
@@ -46,7 +52,8 @@ export function registerConnectionTools(ctx: ToolContext): void {
     async ({ port }) => {
       const old = bridge.targetUrl;
       bridge.setDevPort(port);
-      return textResult(`Target changed: ${old} → ${bridge.targetUrl}\nProxy: ${proxyUrl()} → ${bridge.targetUrl}\nRefresh the browser.`);
+      const note = bridge.started ? '' : '\n(Proxy not started yet — it starts on the first tool call that needs the bridge.)';
+      return textResult(`Target changed: ${old} → ${bridge.targetUrl}\nProxy: ${proxyUrl()} → ${bridge.targetUrl}${note}\nRefresh the browser.`);
     });
 
   tool(ctx, 'set_dev_url', 'connection',
@@ -55,7 +62,8 @@ export function registerConnectionTools(ctx: ToolContext): void {
     async ({ url }) => {
       const old = bridge.targetUrl;
       bridge.setDevUrl(url);
-      const lines = [`Target changed: ${old} → ${bridge.targetUrl}`, `Proxy: ${proxyUrl()} → ${bridge.targetUrl}`, '', 'Refresh the browser to connect.'];
+      const note = bridge.started ? '' : '\n(Proxy not started yet — it starts on the first tool call that needs the bridge.)';
+      const lines = [`Target changed: ${old} → ${bridge.targetUrl}`, `Proxy: ${proxyUrl()} → ${bridge.targetUrl}${note}`, '', 'Refresh the browser to connect.'];
       if (bridge.isRemote) lines.push('', ...REMOTE_NOTE);
       return textResult(lines.join('\n'));
     }, { annotations: { openWorldHint: true } });
